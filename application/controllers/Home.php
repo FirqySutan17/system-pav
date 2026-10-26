@@ -13,14 +13,8 @@ class Home extends CI_Controller
     
     public function index()
     {
-        $data['title'] = 'PT Sinergi Aset Jagat Integrasi';
+        $data['title'] = 'PT PAV';
 
-        $data['featured_properties'] =
-        $this->Property_model
-            ->get_featured_properties_home();
-
-        $this->load->view('template-frontend/header', $data);
         $this->load->view('frontend/home', $data);
-        $this->load->view('template-frontend/footer', $data);
     }
 }

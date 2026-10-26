@@ -1,932 +1,348 @@
-<!-- ======================================================
-Hero Section
-======================================================= -->
 
-<section class="hero" id="hero">
-
-    <!-- Background -->
-    <div class="hero__background">
-        <img
-            src="<?= base_url('assets/frontend/img/hero-building.jpg'); ?>"
-            alt="PT Sinergi Aset Jagat Integrasi">
-    </div>
-
-    <!-- Overlay -->
-    <div class="hero__overlay"></div>
-
-    <div class="container">
-
-        <div class="hero__wrapper">
-
-            <div class="hero__content">
-
-                <span
-                    class="hero__subtitle"
-                    data-aos="fade-up">
-                    PT SINERGI ASET JAGAT INTEGRASI
-                </span>
-
-                <h1
-                    class="hero__title"
-                    data-aos="fade-up"
-                    data-aos-delay="100">
-                    Integrated Asset
-                    Management &
-                    Property Solutions
-                </h1>
-
-                <p
-                    class="hero__description"
-                    data-aos="fade-up"
-                    data-aos-delay="200">
-                    Integrated solutions for asset management,
-                    property, business, and advisory services
-                    with professionalism and integrity.
-                </p>
-
-                <div
-                    class="hero__button"
-                    data-aos="fade-up"
-                    data-aos-delay="300">
-
-                    <a
-                        href="<?= site_url('property'); ?>"
-                        class="btn-primary">
-                        Explore Properties
-                        <i class="bi bi-arrow-right ms-2"></i>
-                    </a>
-
-                    <a
-                        href="https://wa.me/6281316874613?text=<?= rawurlencode(
-                            'Hello, I would like to get a property consultation.'
-                        ); ?>"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="btn-outline">
-                        Contact Us
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- Scroll Indicator -->
-    <!-- <div class="hero__scroll">
-        <span>Scroll Down</span>
-        <div class="hero__scroll-line"></div>
-    </div> -->
-
-</section>
-
-<div class="section-divider">
-    <span></span>
-</div>
-
-<!-- ======================================================
-About Section
-======================================================= -->
-
-<section class="about section" id="about">
-
-    <div class="container">
-
-        <!-- Section Heading -->
-
-        <div class="section-heading text-center"
-             data-aos="fade-up">
-
-            <span class="section-subtitle">
-
-                ABOUT US
-
-            </span>
-
-            <h2 class="section-title">
-
-                Building Trust Through <br>
-
-                Professional Asset & Property Solutions
-
-            </h2>
-
-        </div>
-
-        <div class="about__wrapper">
-
-            <!-- Image -->
-
-            <div
-                class="about__image"
-                data-aos="fade-right">
-
-                <img
-                    src="<?= base_url('assets/frontend/img/about-office.png');?>"
-                    alt="About">
-
-                <div class="about__experience">
-
-                    <h3>
-
-                        15+
-
-                    </h3>
-
-                    <p>
-
-                        Years Experience
-
-                    </p>
-
-                </div>
-
-            </div>
-
-            <!-- Content -->
-
-            <div
-                class="about__content"
-                data-aos="fade-left">
-
-                <h3>
-
-                    PT Sinergi Aset Jagat Integrasi
-
-                </h3>
-
-                <p>
-
-                    PT Sinergi Aset Jagat Integrasi provides
-                    integrated consulting services in asset
-                    management, collateral management,
-                    property consulting, business advisory,
-                    legal advisory, and real estate solutions
-                    with professionalism and integrity.
-
-                </p>
-
-                <div class="about__features">
-
-                    <div class="about__feature">
-
-                        <i class="bi bi-check-circle-fill"></i>
-
-                        Integrity & Transparency
-
-                    </div>
-
-                    <div class="about__feature">
-
-                        <i class="bi bi-check-circle-fill"></i>
-
-                        Professional Team
-
-                    </div>
-
-                    <div class="about__feature">
-
-                        <i class="bi bi-check-circle-fill"></i>
-
-                        Trusted Business Partner
-
-                    </div>
-
-                    <div class="about__feature">
-
-                        <i class="bi bi-check-circle-fill"></i>
-
-                        Nationwide Services
-
-                    </div>
-
-                </div>
-
-                <a
-                    href="#contact"
-                    class="btn-primary mt-4">
-
-                    Learn More
-
-                </a>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-<!-- ======================================================
-Why Choose Us
-======================================================= -->
-
-<section class="why section" id="why">
-
-    <div class="container">
-
-        <div class="section-heading text-center"
-             data-aos="fade-up">
-
-            <span class="section-subtitle">
-
-                WHY CHOOSE US
-
-            </span>
-
-            <h2 class="section-title">
-
-                Why Businesses Trust
-                Our Expertise
-
-            </h2>
-
-        </div>
-
-        <div class="why__wrapper">
-
-            <div class="why-card"
-                 data-aos="fade-up">
-
-                <div class="why-card__icon">
-
-                    <i class="bi bi-people"></i>
-
-                </div>
-
-                <h3>
-
-                    Professional Team
-
-                </h3>
-
-                <p>
-
-                    Experienced professionals committed
-                    to delivering high-quality consulting
-                    services.
-
-                </p>
-
-            </div>
-
-            <div class="why-card"
-                 data-aos="fade-up"
-                 data-aos-delay="100">
-
-                <div class="why-card__icon">
-
-                    <i class="bi bi-patch-check"></i>
-
-                </div>
-
-                <h3>
-
-                    Trusted Partnership
-
-                </h3>
-
-                <p>
-
-                    Building long-term relationships
-                    through integrity, transparency,
-                    and reliability.
-
-                </p>
-
-            </div>
-
-            <div class="why-card"
-                 data-aos="fade-up"
-                 data-aos-delay="200">
-
-                <div class="why-card__icon">
-
-                    <i class="bi bi-globe2"></i>
-
-                </div>
-
-                <h3>
-
-                    Nationwide Services
-
-                </h3>
-
-                <p>
-
-                    Supporting businesses across
-                    Indonesia with integrated
-                    consulting solutions.
-
-                </p>
-
-            </div>
-
-            <div class="why-card"
-                 data-aos="fade-up"
-                 data-aos-delay="300">
-
-                <div class="why-card__icon">
-
-                    <i class="bi bi-lightning-charge"></i>
-
-                </div>
-
-                <h3>
-
-                    Fast Response
-
-                </h3>
-
-                <p>
-
-                    Responsive communication and
-                    efficient project execution
-                    for every client.
-
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-<div class="section-divider" style="background: #fff">
-    <span></span>
-</div>
-
-<!-- ======================================================
-Featured Properties
-======================================================= -->
-
-<section class="featured-property section">
-
-    <div class="container">
-
-        <div class="section-heading text-center">
-
-            <span class="section-subtitle">
-
-                FEATURED PROPERTIES
-
-            </span>
-
-            <h2 class="section-title">
-
-                Selected Investment &
-                Commercial Properties
-
-            </h2>
-
-        </div>
-
-
-        <?php if (!empty($featured_properties)): ?>
-
-            <?php
-            $featured_first = $featured_properties[0];
-            $featured_side = array_slice(
-                $featured_properties,
-                1,
-                2
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link
+        rel="icon"
+        type="image/png"
+        href="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
+    >
+
+    <link
+        rel="apple-touch-icon"
+        href="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
+    >
+
+    <title>PT PITEK BALAP PERKASA | Login</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --pav-orange: #f59a23;
+            --pav-gold: #ffc65c;
+            --pav-dark: #111111;
+            --pav-muted: #a6a6a6;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background: var(--pav-dark);
+            color: #ffffff;
+        }
+
+        .home-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+            background:
+                radial-gradient(
+                    ellipse at 50% 45%,
+                    rgba(245, 154, 35, 0.10) 0%,
+                    rgba(245, 154, 35, 0.025) 35%,
+                    transparent 68%
+                ),
+                #111111;
+        }
+
+        /* Decorative orange accents */
+        .home-page::before,
+        .home-page::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        .home-page::before {
+            width: 520px;
+            height: 520px;
+            top: -360px;
+            right: -140px;
+            border: 1px solid rgba(245, 154, 35, 0.25);
+            box-shadow:
+                0 0 0 45px rgba(245, 154, 35, 0.025),
+                0 0 0 90px rgba(245, 154, 35, 0.02);
+        }
+
+        .home-page::after {
+            width: 450px;
+            height: 450px;
+            bottom: -350px;
+            left: -150px;
+            border: 1px solid rgba(245, 154, 35, 0.2);
+            box-shadow:
+                0 0 0 40px rgba(245, 154, 35, 0.025),
+                0 0 0 80px rgba(245, 154, 35, 0.02);
+        }
+
+        .home-content {
+            width: 100%;
+            max-width: 680px;
+            text-align: center;
+            padding: 54px 48px 44px;
+            border: 1px solid rgba(255, 190, 90, 0.18);
+            border-radius: 24px;
+            background: rgba(24, 24, 24, 0.88);
+            box-shadow:
+                0 25px 80px rgba(0, 0, 0, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.025);
+            animation: fadeIn 0.8s ease both;
+        }
+
+        .logo-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 36px;
+        }
+
+        .home-logo {
+            display: block;
+            width: 100%;
+            max-width: 440px;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .company-label {
+            color: var(--pav-orange);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        .company-name {
+            color: #ffffff;
+            font-size: clamp(23px, 4vw, 32px);
+            font-weight: 700;
+            line-height: 1.35;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
+        .company-description {
+            max-width: 440px;
+            margin: 0 auto 34px;
+            color: var(--pav-muted);
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .gold-divider {
+            width: 65px;
+            height: 3px;
+            margin: 0 auto 30px;
+            border-radius: 10px;
+            background: linear-gradient(
+                90deg,
+                var(--pav-orange),
+                var(--pav-gold)
             );
-            ?>
-
-
-            <div class="featured-grid">
-
-                <!-- ==================================================
-                FEATURED LARGE
-                ================================================== -->
-
-                <a
-                    href="<?= site_url(
-                        'property/' .
-                        $featured_first['slug']
-                    ); ?>"
-                    class="featured-card featured-card--large">
-
-                    <div class="featured-card__image">
-
-                        <img
-                            src="<?= !empty(
-                                $featured_first['thumbnail']
-                            )
-                                ? base_url(
-                                    $featured_first['thumbnail']
-                                )
-                                : base_url(
-                                    'assets/frontend/img/hero-building.jpg'
-                                ); ?>"
-                            alt="<?= htmlspecialchars(
-                                $featured_first['title'],
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?>">
-
-                    </div>
-
-                    <div class="featured-card__overlay"></div>
-
-                    <div class="featured-card__content">
-
-                        <span class="featured-card__badge">
-
-                            <?= htmlspecialchars(
-                                $featured_first['category_name']
-                                    ?? 'Property',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?>
-
-                        </span>
-
-
-                        <h3>
-
-                            <?= htmlspecialchars(
-                                $featured_first['title'],
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?>
-
-                        </h3>
-
-
-                        <p class="featured-card__location">
-
-                            <?= htmlspecialchars(
-                                $featured_first['city']
-                                    ?? '',
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ); ?>
-
-                        </p>
-
-
-                        <?php if (
-                            isset($featured_first['price']) &&
-                            $featured_first['price'] !== '' &&
-                            $featured_first['price'] !== null
-                        ): ?>
-
-                            <div class="featured-card__price">
-
-                                Rp <?= number_format(
-                                    (float) $featured_first['price'],
-                                    0,
-                                    ',',
-                                    '.'
-                                ); ?>
-
-                            </div>
-
-                        <?php endif; ?>
-
-                        <div class="featured-card__footer">
-
-                            <span>
-
-                                View Property
-
-                            </span>
-
-                            <i class="bi bi-arrow-up-right"></i>
-
-                        </div>
-
-                    </div>
-
-                </a>
-
-
-                <!-- ==================================================
-                FEATURED RIGHT
-                ================================================== -->
-
-                <div class="featured-right">
-
-                    <?php foreach (
-                        $featured_side
-                        as $featured
-                    ): ?>
-
-                        <a
-                            href="<?= site_url(
-                                'property/' .
-                                $featured['slug']
-                            ); ?>"
-                            class="featured-card">
-
-                            <div class="featured-card__image">
-
-                                <img
-                                    src="<?= !empty(
-                                        $featured['thumbnail']
-                                    )
-                                        ? base_url(
-                                            $featured['thumbnail']
-                                        )
-                                        : base_url(
-                                            'assets/frontend/img/hero-building.jpg'
-                                        ); ?>"
-                                    alt="<?= htmlspecialchars(
-                                        $featured['title'],
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>">
-
-                            </div>
-
-                            <div class="featured-card__overlay"></div>
-
-                            <div class="featured-card__content">
-
-                                <span class="featured-card__badge">
-
-                                    <?= htmlspecialchars(
-                                        $featured['category_name']
-                                            ?? 'Property',
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>
-
-                                </span>
-
-
-                                <h3>
-
-                                    <?= htmlspecialchars(
-                                        $featured['title'],
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>
-
-                                </h3>
-
-
-                                <p class="featured-card__location">
-
-                                    <?= htmlspecialchars(
-                                        $featured['city']
-                                            ?? '',
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    ); ?>
-
-                                </p>
-
-                                <?php if (
-                                    isset($featured['price']) &&
-                                    $featured['price'] !== '' &&
-                                    $featured['price'] !== null
-                                ): ?>
-
-                                    <div class="featured-card__price">
-
-                                        Rp <?= number_format(
-                                            (float) $featured['price'],
-                                            0,
-                                            ',',
-                                            '.'
-                                        ); ?>
-
-                                    </div>
-
-                                <?php endif; ?>
-
-
-                                <div class="featured-card__footer">
-
-                                    <span>
-
-                                        View Property
-
-                                    </span>
-
-                                    <i class="bi bi-arrow-up-right"></i>
-
-                                </div>
-
-                            </div>
-
-                        </a>
-
-                    <?php endforeach; ?>
-
-                </div>
-
-            </div>
-
-
-        <?php else: ?>
-
-            <!-- ==================================================
-            NO FEATURED PROPERTY
-            ================================================== -->
-
-            <div class="text-center py-5">
-
-                <p>
-
-                    No featured properties available.
-
-                </p>
-
-            </div>
-
-        <?php endif; ?>
-
-
-        <!-- ==================================================
-        BOTTOM CTA
-        ================================================== -->
-
-        <div class="featured-bottom">
-
-            <p>
-
-                Explore our complete portfolio of commercial properties,
-                managed assets, and investment opportunities.
-
-            </p>
-
-            <a
-                href="<?= site_url('property'); ?>"
-                class="btn-primary">
-
-                View All Properties
-
-            </a>
-
+        }
+
+        .btn-login {
+            width: 100%;
+            max-width: 340px;
+            min-height: 58px;
+            margin: 0 auto;
+            padding: 15px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+
+            color: #17110a;
+            background: linear-gradient(
+                110deg,
+                #e88a16 0%,
+                #ffbd4a 52%,
+                #f39a20 100%
+            );
+
+            border: 1px solid rgba(255, 220, 150, 0.65);
+            border-radius: 9px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-decoration: none;
+
+            box-shadow: 0 8px 25px rgba(245, 154, 35, 0.13);
+            transition:
+                transform 0.25s ease,
+                box-shadow 0.25s ease,
+                filter 0.25s ease;
+        }
+
+        .btn-login:hover {
+            color: #111111;
+            filter: brightness(1.08);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(245, 154, 35, 0.25);
+        }
+
+        .btn-login:focus-visible {
+            outline: 3px solid #ffffff;
+            outline-offset: 4px;
+        }
+
+        .login-icon {
+            width: 21px;
+            height: 21px;
+            flex-shrink: 0;
+        }
+
+        .home-footer {
+            margin-top: 38px;
+            padding-top: 22px;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+            color: #737373;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        .home-footer span {
+            color: var(--pav-orange);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 576px) {
+            .home-page {
+                padding: 20px 16px;
+            }
+
+            .home-content {
+                padding: 42px 24px 28px;
+                border-radius: 18px;
+            }
+
+            .home-logo {
+                max-width: 330px;
+            }
+
+            .logo-wrapper {
+                margin-bottom: 30px;
+            }
+
+            .company-label {
+                font-size: 9px;
+                letter-spacing: 3px;
+            }
+
+            .company-name {
+                letter-spacing: 0.5px;
+            }
+
+            .company-description {
+                font-size: 13px;
+            }
+
+            .home-footer {
+                margin-top: 30px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<main class="home-page">
+
+    <section class="home-content">
+
+        <!-- PAV Logo -->
+        <div class="logo-wrapper">
+            <img
+                src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
+                alt="Logo PAV - PT Pitek Balap Perkasa"
+                class="home-logo"
+            >
         </div>
 
-    </div>
-
-</section>
-
-<div class="section-divider" style="background: #fff">
-    <span></span>
-</div>
-
-<!-- ======================================================
-Our Process
-======================================================= -->
-
-<section class="process section" id="process">
-
-    <div class="container">
-
-        <div class="section-heading text-center"
-             data-aos="fade-up">
-
-            <span class="section-subtitle">
-
-                HOW WE WORK
-
-            </span>
-
-            <h2 class="section-title">
-
-                Our Professional
-                Working Process
-
-            </h2>
-
-            <p class="section-description">
-
-                We follow a structured and strategic approach to deliver
-                measurable, sustainable, and value-driven business solutions.
-
-            </p>
-
+        <div class="company-label">
+            Welcome to
         </div>
 
-        <div class="process__wrapper">
+        <h1 class="company-name">
+            PT PITEK BALAP PERKASA
+        </h1>
 
-            <!-- STEP 1 -->
+        <div class="gold-divider"></div>
 
-            <div class="process-item"
-                 data-aos="fade-up">
+        <p class="company-description">
+            Welcome to the official platform of
+            PT Pitek Balap Perkasa.
+            Please log in to continue to the system.
+        </p>
 
-                <div class="process-item__number">
+        <!-- Login Button -->
+        <a href="<?= site_url('login'); ?>" class="btn-login">
 
-                    01
+            <svg class="login-icon"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round"
+                 aria-hidden="true">
 
-                </div>
+                <path d="M10 17l5-5-5-5"/>
+                <path d="M15 12H3"/>
+                <path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/>
 
-                <h3>
+            </svg>
 
-                    Initial Consultation
+            <span>LOGIN TO SYSTEM</span>
 
-                </h3>
+        </a>
 
-                <p>
+        <footer class="home-footer">
+            &copy; <?= date('Y'); ?>
+            <span>PT PITEK BALAP PERKASA</span>.
+            All rights reserved.
+        </footer>
 
-                    Understanding client objectives,
-                    business challenges,
-                    and project requirements.
+    </section>
 
-                </p>
+</main>
 
-            </div>
-
-            <!-- STEP 2 -->
-
-            <div class="process-item"
-                 data-aos="fade-up"
-                 data-aos-delay="100">
-
-                <div class="process-item__number">
-
-                    02
-
-                </div>
-
-                <h3>
-
-                    Assessment & Analysis
-
-                </h3>
-
-                <p>
-
-                    Conducting comprehensive
-                    asset, legal,
-                    and business assessments.
-
-                </p>
-
-            </div>
-
-            <!-- STEP 3 -->
-
-            <div class="process-item"
-                 data-aos="fade-up"
-                 data-aos-delay="200">
-
-                <div class="process-item__number">
-
-                    03
-
-                </div>
-
-                <h3>
-
-                    Strategy & Planning
-
-                </h3>
-
-                <p>
-
-                    Developing customized
-                    strategic solutions
-                    aligned with business goals.
-
-                </p>
-
-            </div>
-
-            <!-- STEP 4 -->
-
-            <div class="process-item"
-                 data-aos="fade-up"
-                 data-aos-delay="300">
-
-                <div class="process-item__number">
-
-                    04
-
-                </div>
-
-                <h3>
-
-                    Execution
-
-                </h3>
-
-                <p>
-
-                    Implementing agreed
-                    strategies with professional
-                    project management.
-
-                </p>
-
-            </div>
-
-            <!-- STEP 5 -->
-
-            <div class="process-item"
-                 data-aos="fade-up"
-                 data-aos-delay="400">
-
-                <div class="process-item__number">
-
-                    05
-
-                </div>
-
-                <h3>
-
-                    Monitoring &
-                    Optimization
-
-                </h3>
-
-                <p>
-
-                    Monitoring progress,
-                    evaluating performance,
-                    and optimizing outcomes.
-
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-<!-- ==========================================================
-     CTA BANNER
-========================================================== -->
-
-<section id="contact" class="cta-banner">
-
-    <div class="container">
-
-        <div class="cta-banner__wrapper" data-aos="zoom-in">
-
-            <div class="cta-banner__content">
-
-                <span class="cta-banner__subtitle">
-
-                    READY TO START?
-
-                </span>
-
-                <h2>
-
-                    Let's Build Sustainable
-                    Asset Value Together
-
-                </h2>
-
-                <p>
-
-                    We help businesses, financial institutions,
-                    and investors maximize asset value through
-                    strategic consulting, legal advisory,
-                    property management, and recovery solutions.
-
-                </p>
-
-            </div>
-
-            <div class="cta-banner__highlights">
-
-                <span><i class="bi bi-check-circle-fill"></i> Professional Team</span>
-
-                <span><i class="bi bi-check-circle-fill"></i> Trusted Solutions</span>
-
-                <span><i class="bi bi-check-circle-fill"></i> Nationwide Services</span>
-
-            </div>
-
-            <div class="cta-banner__action">
-
-                <a
-                    href="https://wa.me/6281316874613?text=Hello%2C%20I%20would%20like%20to%20get%20a%20property%20consultation."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="btn btn-gold">
-
-                    Get Consultation
-
-                </a>
-
-                <a href="<?= site_url('property');?>"
-                   class="btn btn-outline-light">
-
-                    View Properties
-
-                </a>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
+</body>
+</html>
