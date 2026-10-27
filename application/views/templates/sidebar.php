@@ -71,7 +71,9 @@
         if ($initials === '') $initials = 'AD';
         $currentUri = trim($this->uri->uri_string(), '/');
         $dashboardActive = ($currentUri === 'dashboard' || $currentUri === '');
-        $propertyActive = (strpos($currentUri, 'properties') === 0);
+        $codeActive = (strpos($currentUri, 'code') === 0);
+        $customerActive = (strpos($currentUri, 'customer') === 0);
+        $materialActive = (strpos($currentUri, 'material') === 0);
         ?>
 
         <div class="sidebar-profile">
@@ -94,16 +96,25 @@
 
                 <li class="sidebar-section-title">Master Data</li>
                 <li class="sidebar-item">
-                    <a href="<?= base_url('properties'); ?>" class="sidebar-link <?= $propertyActive ? 'active' : ''; ?>">
+                    <a href="<?= base_url('code'); ?>" class="sidebar-link <?= $codeActive ? 'active' : ''; ?>">
                         <span class="sidebar-icon"><i class="ti ti-building"></i></span>
-                        <span class="hide-menu">CD CODE</span>
+                        <span class="hide-menu">General Code</span>
                     </a>
                 </li>
-                <!-- Aktifkan menu berikut jika controller/route-nya sudah tersedia:
-                <li class="sidebar-item"><a href="<?= base_url('property-categories'); ?>" class="sidebar-link"><span class="sidebar-icon"><i class="ti ti-category"></i></span><span class="hide-menu">Categories</span></a></li>
-                <li class="sidebar-item"><a href="<?= base_url('property-locations'); ?>" class="sidebar-link"><span class="sidebar-icon"><i class="ti ti-map-pin"></i></span><span class="hide-menu">Locations</span></a></li>
-                <li class="sidebar-item"><a href="<?= base_url('users'); ?>" class="sidebar-link"><span class="sidebar-icon"><i class="ti ti-users"></i></span><span class="hide-menu">Users</span></a></li>
-                -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('customer'); ?>" class="sidebar-link <?= $customerActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon"><i class="ti ti-building"></i></span>
+                        <span class="hide-menu">Customer / Supplier</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-item">
+                    <a href="<?= base_url('material'); ?>" class="sidebar-link <?= $materialActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon"><i class="ti ti-building"></i></span>
+                        <span class="hide-menu">Material</span>
+                    </a>
+                </li>
+
             </ul>
         </nav>
 

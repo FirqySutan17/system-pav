@@ -1,27 +1,61 @@
-<div class="container-fluid">
-    <div class="card w-100">
-        <div class="card-body">
+<style>
+.material-page{--mp-primary:#2864f0;--mp-text:#17233b;--mp-muted:#66758f;--mp-border:#e2e8f2;color:var(--mp-text);padding-bottom:24px}
+.material-page .mp-breadcrumb{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:4px 0 18px;color:var(--mp-muted);font-size:13px}
+.material-page .mp-breadcrumb a{color:var(--mp-muted);text-decoration:none}
+.material-page .mp-hero{display:flex;align-items:center;gap:15px;padding:22px 25px;margin-top:60px;margin-bottom:16px;border:1px solid #e5ebf6;border-radius:16px;background:linear-gradient(115deg,#fff,#f8faff 55%,#edf3ff);box-shadow:0 7px 24px #1b34600b}
+.material-page .mp-hero-icon{width:52px;height:52px;flex:0 0 52px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#e6eeff;color:var(--mp-primary);font-size:22px}
+.material-page .mp-hero h1{margin:0 0 5px;font-size:23px;font-weight:750;letter-spacing:-.4px}
+.material-page .mp-hero p{margin:0;color:var(--mp-muted);font-size:13px}
+.material-page .mp-card{background:#fff;border:1px solid #e5ebf4;border-radius:16px;box-shadow:0 9px 28px #1b34600e;overflow:hidden}
+.material-page .mp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 21px;border-bottom:1px solid #edf1f7;background:#fcfdff}
+.material-page .mp-toolbar-title{font-size:15px;font-weight:750;margin:0 0 4px}
+.material-page .mp-toolbar-subtitle{font-size:12px;color:var(--mp-muted);margin:0}
+.material-page .mp-toolbar-actions{display:flex;align-items:center;gap:10px;min-width:min(100%,420px)}
+.material-page #search{height:41px;border:1px solid var(--mp-border);border-radius:9px;padding:9px 12px;font-size:13px;box-shadow:none}
+.material-page #search:focus,.material-page .form-control:focus{border-color:#8aafff;box-shadow:0 0 0 3px #2864f017}
+.material-page .mp-add-btn{display:inline-flex;align-items:center;gap:7px;justify-content:center;min-height:41px;padding:9px 15px;border-radius:9px;background:var(--mp-primary);border-color:var(--mp-primary);font-size:13px;font-weight:650;white-space:nowrap}
+.material-page .mp-table-wrap{overflow:auto}
+.material-page #mainTable{min-width:1120px;border-collapse:separate;border-spacing:0;margin:0}
+.material-page #mainTable thead th{position:sticky;top:0;z-index:1;background:#f7f9fd;color:#63728b;font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:750;padding:13px 12px;border-bottom:1px solid #e7edf6;white-space:nowrap}
+.material-page #mainTable tbody td{padding:12px;font-size:12.5px;vertical-align:middle;border-bottom:1px solid #edf1f7}
+.material-page #mainTable tbody tr:hover{background:#f8faff}
+.material-page #mainTable th[data-order]{cursor:pointer}
+.material-page .mp-code{font-weight:750;color:#285de5}
+.material-page .mp-name{font-weight:650;color:#26364f}
+.material-page .mp-price{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.material-page .mp-status{display:inline-flex;padding:4px 8px;border-radius:20px;background:#edf7f0;color:#16804a;font-size:11px;font-weight:700}
+.material-page .mp-actions{display:flex;justify-content:center;gap:6px}
+.material-page .mp-actions .btn{border-radius:7px;font-size:11px;padding:5px 9px}
+.material-page .mp-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:#fbfcff}
+.material-page .modal-content{border:0;border-radius:15px;overflow:hidden;box-shadow:0 18px 55px #17233b26}
+.material-page .modal-header{padding:18px 22px;background:#fcfdff;border-bottom:1px solid #edf1f7}
+.material-page .modal-title{font-size:16px;font-weight:750}
+.material-page .modal-body{padding:22px}
+.material-page .modal-body .form-label{font-size:12.5px;font-weight:650;color:#26364f;margin-bottom:7px}
+.material-page .modal-body .form-control{min-height:41px;border:1px solid var(--mp-border);border-radius:8px;font-size:13px;box-shadow:none}
+.material-page .modal-footer{padding:14px 22px;background:#fbfcff;border-top:1px solid #edf1f7}
+.material-page .modal-footer .btn{border-radius:8px;font-size:13px;font-weight:650;padding:9px 15px}
+.material-page .select2-container{width:100%!important}
+.material-page .select2-container--default .select2-selection--single{height:41px;border:1px solid var(--mp-border);border-radius:8px}
+.material-page .select2-container--default .select2-selection--single .select2-selection__rendered{line-height:39px;font-size:13px;padding-left:12px}
+.material-page .select2-container--default .select2-selection--single .select2-selection__arrow{height:39px;right:7px}
+.material-page .select2-container--open{z-index:2060}
+@media(max-width:767px){.material-page .mp-hero{padding:17px;margin-top:20px}.material-page .mp-hero h1{font-size:19px}.material-page .mp-toolbar{align-items:stretch;flex-direction:column;padding:15px}.material-page .mp-toolbar-actions{min-width:0}.material-page .mp-toolbar-actions #search{min-width:0}.material-page .mp-footer{align-items:flex-start;flex-direction:column}.material-page .modal-body{padding:16px}}
+</style>
 
-            <h5 class="card-title fw-semibold mb-4">CD MATERIAL - BASE DATA</h5>
-
-            <!-- SEARCH + ADD ROW -->
-            <div class="row mb-3" style="margin-top: 20px">
-                <div class="col-md-8 col-sm-12">
-                    <input id="search" type="text" class="form-control" placeholder="Cari material..." />
-                </div>
-                <div class="col-md-4 col-sm-12 text-end mt-2 mt-md-0">
-                    <div class="btn-group">
-                        <!-- <button class="btn btn-outline-secondary" id="exportExcel">Export Excel</button>
-                        <button class="btn btn-outline-secondary" id="exportPdf">Export PDF</button> -->
-                    </div>
-                    <button id="btnAdd" class="btn btn-primary ms-2" data-bs-toggle="modal" data-bs-target="#mmaterialAdd">
-                        <i class="ti ti-plus"></i> Tambah
-                    </button>
-                </div>
-            </div>
-
-            <!-- TABLE -->
-            <div class="table-responsive">
+<div class="content-wrapper material-page">
+<section class="content pt-3"><div class="container-fluid">
+<nav class="mp-breadcrumb"><a href="<?= base_url(); ?>"><i class="fas fa-home"></i></a><i class="fas fa-chevron-right" style="font-size:10px"></i><span>Master Data</span><i class="fas fa-chevron-right" style="font-size:10px"></i><strong>Material</strong></nav>
+<div class="mp-hero"><div class="mp-hero-icon"><i class="fas fa-boxes-stacked"></i></div><div><h1>Material Master</h1><p>Kelola data material, spesifikasi, unit, dan harga.</p></div></div>
+<div class="mp-card">
+  <div class="mp-toolbar">
+    <div><h2 class="mp-toolbar-title">Daftar Material</h2><p class="mp-toolbar-subtitle">Cari, urutkan, dan kelola master material.</p></div>
+    <div class="mp-toolbar-actions">
+      <input id="search" type="text" class="form-control" placeholder="Cari kode, nama, class, grade..." />
+      <button id="btnAdd" class="btn btn-primary mp-add-btn" data-bs-toggle="modal" data-bs-target="#mmaterialAdd"><i class="ti ti-plus"></i> Tambah Material</button>
+    </div>
+  </div>
+  <div class="mp-table-wrap">
                 <table class="table table-striped table-hover text-nowrap mb-0 align-middle" id="mainTable" style="border-collapse: collapse; border-radius: 10px; overflow: hidden;">
                     <thead class="text-dark fs-3">
                         <tr>
@@ -42,16 +76,13 @@
                         <!-- filled by AJAX -->
                     </tbody>
                 </table>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <div id="info"></div>
-                <div id="pagination"></div>
-            </div>
-
-        </div>
-    </div>
+  </div>
+  <div class="mp-footer">
+    <div id="info" class="text-muted small"></div>
+    <div id="pagination"></div>
+  </div>
 </div>
+</div></section></div>
 
 <!-- MODAL ADD -->
 <div class="modal fade" id="mmaterialAdd" tabindex="-1" aria-hidden="true">
@@ -539,6 +570,15 @@ function doDelete(material){
 }
 
 /* ========================== UTIL ========================== */
+function formatMaterialPrice(value){
+    if(value === null || value === undefined || value === '') return '-';
+    var n = Number(value);
+    if(!Number.isFinite(n)) return escapeHtml(value);
+    return escapeHtml(n.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+}
+function escapeJsArg(value){
+    return String(value == null ? '' : value).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, "\\\\'").replace(/[\\r\\n]/g, '');
+}
 function escapeHtml(text){
     return $('<div/>').text(text).html();
 }

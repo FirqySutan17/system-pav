@@ -6,9 +6,9 @@ class Code extends MY_Controller {
     public function __construct()
     {
         parent::__construct();
-        if (!has_permission('base_general_code')) {
-            show_404();
-        }
+        // if (!has_permission('base_general_code')) {
+        //     show_404();
+        // }
         $this->load->model('Code_model');
         $this->load->library('session');
         $this->load->helper(['url','download','file']);

@@ -5,9 +5,9 @@ class Material extends MY_Controller {
 
     public function __construct() {
         parent::__construct();
-        if (!has_permission('base_material')) {
-            show_404();
-        }
+        // if (!has_permission('base_material')) {
+        //     show_404();
+        // }
         $this->load->model('Material_model', 'm');
         $this->load->library('form_validation');
     }

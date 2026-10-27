@@ -1,3 +1,43 @@
+
+<style>
+.general-code-page{--gc-primary:#2864f0;--gc-ink:#17233b;--gc-muted:#66758f;--gc-border:#e5ebf4;color:var(--gc-ink);padding-bottom:24px}
+.general-code-page .gc-hero{display:flex;align-items:center;gap:15px;padding:21px 24px;border:1px solid #e5ebf6;border-radius:16px;background:linear-gradient(115deg,#fff,#f8faff 55%,#edf3ff);box-shadow:0 7px 24px #1b34600b;margin:80px 0 16px}
+.general-code-page .gc-hero-icon{width:50px;height:50px;flex:0 0 50px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:#e6eeff;color:var(--gc-primary);font-size:21px}
+.general-code-page .gc-hero h1{font-size:23px;font-weight:750;letter-spacing:-.4px;margin:0 0 4px}
+.general-code-page .gc-hero p{font-size:13px;color:var(--gc-muted);margin:0}
+.general-code-page>.content>.container-fluid>.card{border:1px solid var(--gc-border);border-radius:16px;box-shadow:0 9px 28px #1b34600e;overflow:hidden}
+.general-code-page .card-body{padding:20px}
+.general-code-page .card-title{display:none}
+.general-code-page #btnAdd{border-radius:9px;padding:9px 15px;font-size:13px;font-weight:650;background:var(--gc-primary);border-color:var(--gc-primary);box-shadow:0 5px 12px #2864f02e}
+.general-code-page .cct-wrapper{grid-template-columns:minmax(230px,2fr) minmax(0,6fr);gap:16px}
+.general-code-page .cct-panel{border:1px solid var(--gc-border);border-radius:12px;background:#fff;min-width:0}
+.general-code-page .cct-panel table{width:100%;margin-bottom:0;border-collapse:separate;border-spacing:0}
+.general-code-page .cct-panel th{position:sticky;top:0;z-index:1;background:#f7f9fd;color:#63728b;border:0;border-bottom:1px solid #e7edf6;font-size:11px;text-transform:uppercase;letter-spacing:.3px;font-weight:700;padding:12px 13px;white-space:nowrap}
+.general-code-page .cct-panel td{padding:12px 13px!important;border-bottom:1px solid #edf1f7;font-size:12.5px;color:var(--gc-ink);vertical-align:middle!important}
+.general-code-page .cct-panel tbody tr:last-child td{border-bottom:0}
+.general-code-page #headcode-body tr{cursor:pointer;transition:background .15s}
+.general-code-page #headcode-body tr:hover{background:#f1f5ff}
+.general-code-page #headcode-body tr.active-row{background:#e7eeff!important}
+.general-code-page #headcode-body tr.active-row td{color:#214fbd!important;font-weight:700}
+.general-code-page #mainTable td:last-child{white-space:nowrap}
+.general-code-page #mainTable .btn{border-radius:7px;font-size:11.5px;padding:5px 9px}
+.general-code-page #mainTable .btn-warning{background:#fff4d6;border-color:#f6df9e;color:#8a5b00}
+.general-code-page #mainTable .btn-danger{background:#fff0f0;border-color:#ffd2d2;color:#b42332}
+.general-code-page #info{font-size:12px;color:var(--gc-muted)}
+.general-code-page #pagination .page-link{font-size:12px;color:var(--gc-primary);border-color:var(--gc-border)}
+.general-code-page .form-control,.general-code-page .select2-container--default .select2-selection--single{border:1px solid #dce4ef;border-radius:8px;min-height:40px;box-shadow:none;font-size:13px}
+.general-code-page .form-control:focus{border-color:#8aafff;box-shadow:0 0 0 3px #2864f017}
+.general-code-page .modal-content{border:1px solid #e5ebf4;border-radius:15px;overflow:hidden;box-shadow:0 18px 50px #10234424}
+.general-code-page .modal-header{background:#fbfcff;border-bottom:1px solid #edf1f7;padding:17px 21px}
+.general-code-page .modal-title{font-weight:750;font-size:16px;color:var(--gc-ink)}
+.general-code-page .modal-body{padding:22px}
+.general-code-page .modal-footer{background:#fbfcff;border-top:1px solid #edf1f7;padding:14px 21px}
+.general-code-page .modal-footer .btn{border-radius:8px;font-size:13px;padding:8px 14px}
+.general-code-page .form-label{font-size:12.5px;font-weight:650;color:#26364f}
+.general-code-page .form-check-input:checked{background-color:var(--gc-primary);border-color:var(--gc-primary)}
+@media(max-width:767px){.general-code-page .gc-hero{padding:17px;margin-top:30px}.general-code-page .gc-hero h1{font-size:19px}.general-code-page .card-body{padding:14px}.general-code-page .cct-wrapper{grid-template-columns:1fr}.general-code-page .cct-panel{overflow-x:auto}.general-code-page .cct-panel table{min-width:350px}}
+</style>
+
 <style>
     .cct-wrapper {
         display: grid;
@@ -64,7 +104,8 @@
     }
 </style>
 
-<div class="container-fluid">
+<div class="content-wrapper general-code-page"><section class="content pt-3"><div class="container-fluid">
+    <div class="gc-hero"><div class="gc-hero-icon"><i class="fas fa-code"></i></div><div><h1>General Code</h1><p>Kelola master general code dan detail kode dalam satu tampilan.</p></div></div>
     <div class="card w-100">
         <div class="card-body">
 
@@ -129,7 +170,7 @@
             </div>
         </div>
     </div>
-</div>
+</div></section></div>
 
 <!-- MODAL ADD -->
 <div class="modal fade" id="modalAdd" tabindex="-1" aria-hidden="true">

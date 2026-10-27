@@ -7,21 +7,18 @@ $route['translate_uri_dashes'] = FALSE;
 $route['login'] = 'auth/login';
 $route['logout'] = 'auth/logout';
 $route['dashboard'] = 'dashboard/index';
-$route['property'] = 'property/index';
-$route['property/(:any)'] = 'property/property_detail/$1';
+$route['code'] = 'code/index';
+$route['material'] = 'material/index';
 
-$route['properties']               = 'properties/index';
-$route['properties/create']        = 'properties/create';
-$route['properties/store']         = 'properties/store';
-$route['properties/view/(:num)'] = 'properties/view/$1';
-$route['properties/edit/(:num)']   = 'properties/edit/$1';
-$route['properties/update/(:num)'] = 'properties/update/$1';
-$route['properties/delete/(:num)'] = 'properties/delete/$1';
-
-$route['properties/quick-add-category']
-    = 'properties/quick_add_category';
-
-$route['properties/quick-add-location']
-    = 'properties/quick_add_location';
+// CUSTOMER ROUTE 
+$route['customer'] = 'customer/index';
+$route['customer/load_data'] = 'customer/load_data';
+$route['customer/preview_code'] = 'customer/preview_code';
+$route['customer/create'] = 'customer/create';
+$route['customer/store'] = 'customer/store';
+$route['customer/edit/(:any)'] = 'customer/edit/$1';
+$route['customer/update'] = 'customer/update';
+$route['customer/detail'] = 'customer/detail';
+$route['customer/credit-limit/(:any)'] = 'customer/credit_limit/$1';
 
 
