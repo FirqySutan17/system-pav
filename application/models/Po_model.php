@@ -1,928 +1,187 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Po_model extends CI_Model {
+class Po_model extends CI_Model
+{
+    private $header_table = 'pav_tr_po';
+    private $detail_table = 'pav_tr_po_detail';
 
-    protected $table = 'abc_mst_po';
+    private $allowed_order = [
+        'PO_NO'         => 'po.PO_NO',
+        'PO_DATE'       => 'po.PO_DATE',
+        'SUPPLIER_NAME' => 'supplier.FULL_NAME',
+        'TOTAL_EKOR'    => 'TOTAL_EKOR',
+        'TOTAL_BW'      => 'TOTAL_BW',
+        'TOTAL_AMOUNT'  => 'TOTAL_AMOUNT',
+        'STATUS'        => 'po.STATUS'
+    ];
 
-    public function __construct(){
-        parent::__construct();
-    }
-
-    public function get_data(
-        $limit,
-        $start,
-        $role_id,
-        $plant,
-        $username,
-        $search = '',
-        $order = 'PO_DATE',
-        $dir = 'DESC',
-        $status = '',
-        $dateFrom = '',
-        $dateTo = ''
-    )
+    public function get_supplier_options()
     {
-        $this->db->select("
-            po.*,
-
-            supplier.FULL_NAME AS SUPPLIER_NAME,
-
-            plant.CODE_NAME AS PLANT_NAME,
-
-            po_type.CODE_NAME AS PO_TYPE_NAME,
-
-            material.material_name AS MATERIAL_NAME,
-
-            COUNT(DISTINCT pod.CUSTOMER)
-                AS TOTAL_CUSTOMER,
-
-            COALESCE(
-                SUM(rd.BERAT),
-                0
-            ) AS TOTAL_RECEIVE_BERAT,
-
-            CASE
-
-                WHEN COALESCE(
-                    SUM(rd.BERAT),
-                    0
-                ) >= po.BERAT
-                THEN 'RECEIVED'
-
-                WHEN COALESCE(
-                    SUM(rd.BERAT),
-                    0
-                ) > 0
-                THEN 'PARTIAL'
-
-                ELSE 'OPEN'
-
-            END AS STATUS_PO
-        ", false);
-
-        $this->db->from('abc_mst_po po');
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUPPLIER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_customer supplier',
-            '
-                supplier.CUST COLLATE utf8mb4_unicode_ci =
-                po.SUPPLIER COLLATE utf8mb4_unicode_ci
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | PLANT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_code plant',
-            "
-                plant.CODE COLLATE utf8mb4_unicode_ci =
-                po.PLANT COLLATE utf8mb4_unicode_ci
-                AND plant.HEAD_CODE = 'PLANT'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | PO TYPE
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_code po_type',
-            "
-                po_type.CODE COLLATE utf8mb4_unicode_ci =
-                po.PO_TYPE COLLATE utf8mb4_unicode_ci
-                AND po_type.HEAD_CODE = 'PO'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | MATERIAL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_material material',
-            '
-                material.MATERIAL COLLATE utf8mb4_unicode_ci =
-                po.MATERIAL COLLATE utf8mb4_unicode_ci
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_po_detail pod',
-            '
-                pod.PO = po.PO
-                AND pod.PLANT = po.PLANT
-                AND pod.DELETED IS NULL
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | RECEIVE
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_receive r',
-            '
-                r.PO = po.PO
-                AND r.PLANT = po.PLANT
-                AND r.DELETED IS NULL
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | RECEIVE DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_receive_detail rd',
-            '
-                rd.RECEIVE = r.RECEIVE
-                AND rd.PLANT = r.PLANT
-                AND rd.DELETED IS NULL
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            'po.DELETED IS NULL',
-            null,
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE
-        |--------------------------------------------------------------------------
-        */
-
-        if($role_id !== 1){
-
-            $plants = json_decode(
-                $plant,
-                true
-            );
-
-            if(!is_array($plants)){
-
-                $plants = explode(
-                    ',',
-                    $plant
-                );
-            }
-
-            $this->db->where_in(
-                'po.PLANT',
-                $plants
-            );
-
-            $this->db->where(
-                'po.CREATED_BY',
-                $username
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if($search !== ''){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                'po.PO',
-                $search
-            );
-
-            $this->db->or_like(
-                'supplier.FULL_NAME',
-                $search
-            );
-
-            $this->db->or_like(
-                'material.material_name',
-                $search
-            );
-
-            $this->db->or_like(
-                'po.NO_TRUCK',
-                $search
-            );
-
-            $this->db->or_like(
-                'po.DRIVER',
-                $search
-            );
-
-            $this->db->or_like(
-                'po.REMARK',
-                $search
-            );
-
-            $this->db->group_end();
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATE FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($dateFrom)){
-
-            $this->db->where(
-                'po.PO_DATE >=',
-                $dateFrom
-            );
-        }
-
-        if(!empty($dateTo)){
-
-            $this->db->where(
-                'po.PO_DATE <=',
-                $dateTo
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GROUP BY
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->group_by('po.PO');
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($status)){
-
-            $this->db->having(
-                'STATUS_PO',
-                $status
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->order_by(
-            'po.' . $order,
-            $dir
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | LIMIT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->limit(
-            (int)$limit,
-            (int)$start
-        );
-
         return $this->db
+            ->select('CUST, FULL_NAME')
+            ->from('pav_cd_customer')
+            ->where('CUST_KIND', 'SUPPLIER')
+            ->order_by('FULL_NAME', 'ASC')
             ->get()
             ->result_array();
     }
 
-    public function count_data(
-        $role_id,
-        $plant,
-        $username,
-        $search = '',
-        $status = '',
-        $dateFrom = '',
-        $dateTo = ''
-    )
+    private function apply_filter($filters = [])
     {
-        $subquery = $this->db
-            ->select('po.PO', false)
-            ->from('abc_mst_po po')
+        $search = trim((string) ($filters['search'] ?? ''));
+        $supplier = trim((string) ($filters['supplier'] ?? ''));
+        $date_from = trim((string) ($filters['date_from'] ?? ''));
+        $date_to = trim((string) ($filters['date_to'] ?? ''));
 
-            ->join(
-                'abc_cd_customer supplier',
-                '
-                    supplier.CUST COLLATE utf8mb4_unicode_ci =
-                    po.SUPPLIER COLLATE utf8mb4_unicode_ci
-                ',
-                'left',
-                false
-            )
-
-            ->join(
-                'abc_cd_material material',
-                '
-                    material.MATERIAL COLLATE utf8mb4_unicode_ci =
-                    po.MATERIAL COLLATE utf8mb4_unicode_ci
-                ',
-                'left',
-                false
-            )
-
-            ->join(
-                'abc_mst_receive r',
-                '
-                    r.PO = po.PO
-                    AND r.PLANT = po.PLANT
-                    AND r.DELETED IS NULL
-                ',
-                'left',
-                false
-            )
-
-            ->join(
-                'abc_mst_receive_detail rd',
-                '
-                    rd.RECEIVE = r.RECEIVE
-                    AND rd.PLANT = r.PLANT
-                    AND rd.DELETED IS NULL
-                ',
-                'left',
-                false
-            )
-
-            ->where(
-                'po.DELETED IS NULL',
-                null,
-                false
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE
-        |--------------------------------------------------------------------------
-        */
-
-        if($role_id !== 1){
-
-            $plants = json_decode(
-                $plant,
-                true
-            );
-
-            if(!is_array($plants)){
-
-                $plants = explode(
-                    ',',
-                    $plant
-                );
-            }
-
-            $subquery->where_in(
-                'po.PLANT',
-                $plants
-            );
-
-            $subquery->where(
-                'po.CREATED_BY',
-                $username
-            );
+        if ($search !== '') {
+            $this->db->group_start()
+                ->like('po.PO_NO', $search)
+                ->or_like('supplier.FULL_NAME', $search)
+                ->or_like('po.SUPPLIER', $search)
+                ->group_end();
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if($search !== ''){
-
-            $subquery->group_start();
-
-            $subquery->like(
-                'po.PO',
-                $search
-            );
-
-            $subquery->or_like(
-                'supplier.FULL_NAME',
-                $search
-            );
-
-            $subquery->or_like(
-                'material.material_name',
-                $search
-            );
-
-            $subquery->group_end();
+        if ($supplier !== '') {
+            $this->db->where('po.SUPPLIER', $supplier);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATE
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($dateFrom)){
-
-            $subquery->where(
-                'po.PO_DATE >=',
-                $dateFrom
-            );
+        if ($this->is_valid_date($date_from)) {
+            $this->db->where('po.PO_DATE >=', $date_from);
         }
-
-        if(!empty($dateTo)){
-
-            $subquery->where(
-                'po.PO_DATE <=',
-                $dateTo
-            );
+        if ($this->is_valid_date($date_to)) {
+            $this->db->where('po.PO_DATE <=', $date_to);
         }
+    }
 
-        $subquery->group_by('po.PO');
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($status)){
-
-            if($status == 'OPEN'){
-
-                $subquery->having(
-                    'COALESCE(SUM(rd.BERAT),0) = 0',
-                    null,
-                    false
-                );
-            }
-
-            if($status == 'PARTIAL'){
-
-                $subquery->having(
-                    '
-                        COALESCE(SUM(rd.BERAT),0) > 0
-                        AND
-                        COALESCE(SUM(rd.BERAT),0) < po.BERAT
-                    ',
-                    null,
-                    false
-                );
-            }
-
-            if($status == 'RECEIVED'){
-
-                $subquery->having(
-                    '
-                        COALESCE(SUM(rd.BERAT),0) >= po.BERAT
-                    ',
-                    null,
-                    false
-                );
-            }
-        }
-
-        return count(
-            $subquery
-                ->get()
-                ->result_array()
+    private function base_list_query()
+    {
+        $this->db->from($this->header_table . ' po');
+        $this->db->join('pav_cd_customer supplier', 'supplier.CUST = po.SUPPLIER AND supplier.CUST_KIND = "SUPPLIER"', 'left', FALSE);
+        $this->db->join(
+            '(SELECT PO_NO, SUM(QTY_EKOR) AS TOTAL_EKOR, SUM(TOTAL_BW) AS TOTAL_BW, SUM(SUBTOTAL) AS TOTAL_AMOUNT FROM ' . $this->detail_table . ' GROUP BY PO_NO) detail_totals',
+            'detail_totals.PO_NO = po.PO_NO',
+            'left',
+            FALSE
         );
     }
 
-    public function get_user_plants($username)
+    public function get_data($limit = 10, $offset = 0, $filters = [], $order = 'PO_DATE', $dir = 'DESC')
     {
-        $row = $this->db
-            ->select('plant')
-            ->where('username', $username)
-            ->get('users')
-            ->row();
+        $limit = max(1, min(100, (int) $limit));
+        $offset = max(0, (int) $offset);
+        $order_key = strtoupper((string) $order);
+        $order_col = $this->allowed_order[$order_key] ?? 'po.PO_DATE';
+        $dir = strtoupper((string) $dir) === 'ASC' ? 'ASC' : 'DESC';
 
-        if (!$row || empty($row->plant)) {
-            return [];
+        $this->base_list_query();
+        $this->apply_filter($filters);
+        $this->db->select([
+            'po.PO_NO', 'po.PO_DATE', 'po.PLANT', 'po.SUPPLIER',
+            'supplier.FULL_NAME AS SUPPLIER_NAME', 'po.STATUS',
+            'COALESCE(detail_totals.TOTAL_EKOR, 0) AS TOTAL_EKOR',
+            'COALESCE(detail_totals.TOTAL_BW, 0) AS TOTAL_BW',
+            'COALESCE(detail_totals.TOTAL_AMOUNT, 0) AS TOTAL_AMOUNT'
+        ], FALSE);
+        $this->db->order_by($order_col, $dir);
+        $this->db->order_by('po.PO_NO', 'DESC');
+        return $this->db->get('', $limit, $offset)->result_array();
+    }
+
+    public function count_data($filters = [])
+    {
+        $this->base_list_query();
+        $this->apply_filter($filters);
+        return (int) $this->db->count_all_results();
+    }
+
+    public function get_by_pk($po_no)
+    {
+        $header = $this->db
+            ->select('po.*, supplier.FULL_NAME AS SUPPLIER_NAME')
+            ->from($this->header_table . ' po')
+            ->join('pav_cd_customer supplier', 'supplier.CUST = po.SUPPLIER AND supplier.CUST_KIND = "SUPPLIER"', 'left', FALSE)
+            ->where('po.PO_NO', $po_no)
+            ->get()->row_array();
+
+        if (!$header) {
+            return NULL;
         }
 
-        $plants = json_decode($row->plant, true);
-
-        return is_array($plants) ? $plants : [];
-    }
-
-    public function get_plant_select2_by_user($username)
-    {
-        $plantCodes = $this->get_user_plants($username);
-
-        if (empty($plantCodes)) {
-            return [];
-        }
-
-        return $this->db
-            ->select('CODE as id, CODE_NAME as text')
-            ->where('HEAD_CODE', 'PLANT')
-            ->where('CODE <>', '*')
-            ->where_in('CODE', $plantCodes)
-            ->order_by('CODE_NAME', 'ASC')
-            ->get('abc_cd_code')
+        $header['DETAILS'] = $this->db
+            ->where('PO_NO', $po_no)
+            ->order_by('LINE_NO', 'ASC')
+            ->get($this->detail_table)
             ->result_array();
+
+        return $header;
     }
 
-    public function get_plant_select2()
+
+    public function save_po($header, $details, $po_no = NULL)
     {
-        return $this->db
-            ->select('CODE as id, CODE_NAME as text')
-            ->from('abc_cd_code')
-            ->where('HEAD_CODE', 'PLANT')
-            ->where('CODE <>', '*')
-            ->where('USE_YN', 'Y')
-            ->order_by('CODE_NAME', 'ASC')
-            ->get()
-            ->result_array();
-    }
-
-    public function user_has_plant($username, $plant)
-    {
-        $plants = $this->get_user_plants($username);
-        return in_array($plant, $plants);
-    }
-
-    /**
-     * Auto generate PO number
-     */
-    public function generate_auto_po($plant)
-    {
-        $today = date('Ymd');
-
-        $this->db->where('PLANT', $plant);
-        $this->db->like('PO', $today.'PO');
-        $this->db->order_by('PO', 'DESC');
-        $row = $this->db->get('abc_mst_po')->row();
-
-        if (!$row) {
-            $seq = 1;
+        $this->db->trans_begin();
+        $now = date('Y-m-d H:i:s');
+        if ($po_no === NULL) {
+            $po_no = $this->generate_po_no();
+            if (!$po_no) { $this->db->trans_rollback(); return ['ok'=>FALSE,'message'=>'Nomor PO tidak dapat dibuat.']; }
+            $header['PO_NO'] = $po_no;
+            $header['STATUS'] = 'OPEN';
+            $header['REG_DATE'] = $now;
+            $this->db->insert($this->header_table, $header);
         } else {
-            $seq = (int)substr($row->PO, -4) + 1;
+            $header['MOD_DATE'] = $now;
+            $this->db->where('PO_NO', $po_no)->update($this->header_table, $header);
+            $this->db->where('PO_NO', $po_no)->delete($this->detail_table);
         }
-
-        return $today . 'PO' . str_pad($seq, 4, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Insert header PO
-     */
-    public function insert_header($data)
-    {
-        return $this->db->insert('abc_mst_po', $data);
-    }
-
-    /**
-     * Insert detail PO batch
-     */
-    public function insert_detail($rows)
-    {
-        return $this->db->insert_batch('abc_mst_po_detail', $rows);
-    }
-
-    /**
-     * Get PO header
-     */
-    public function get_header($plant, $po)
-    {
-        $this->db->select('
-            abc_mst_po.*,
-            abc_cd_customer.FULL_NAME AS SUPPLIER_NAME,
-            abc_cd_code.CODE_NAME AS AJ_NAME
-        ');
-        $this->db->from('abc_mst_po');
-        $this->db->join(
-            'abc_cd_customer',
-            'abc_mst_po.SUPPLIER = abc_cd_customer.CUST',
-            'left'
-        );
-        $this->db->join(
-            'abc_cd_code',
-            "abc_cd_code.CODE = abc_mst_po.PLANT AND abc_cd_code.HEAD_CODE = 'AJ'",
-            'left'
-        );
-        $this->db->where('abc_mst_po.PLANT', $plant);
-        $this->db->where('abc_mst_po.PO', $po);
-
-        return $this->db->get()->row_array();
-    }
-
-    public function get_header_for_edit(
-        $plant,
-        $po,
-        $username,
-        $role_id
-    )
-    {
-        $this->db->select("
-            po.*,
-
-            supplier.FULL_NAME AS SUPPLIER_NAME,
-
-            plant_code.CODE_NAME AS PLANT_NAME,
-
-            type_code.CODE_NAME AS PO_TYPE_NAME,
-
-            material.MATERIAL_NAME
-        ");
-
-        $this->db->from('abc_mst_po po');
-
-        // ================= SUPPLIER =================
-        $this->db->join(
-            'abc_cd_customer supplier',
-            'supplier.CUST = po.SUPPLIER',
-            'left'
-        );
-
-        // ================= PLANT =================
-        $this->db->join(
-            'abc_cd_code plant_code',
-            "plant_code.CODE = po.PLANT
-            AND plant_code.HEAD_CODE = 'PLANT'",
-            'left'
-        );
-
-        // ================= PO TYPE =================
-        $this->db->join(
-            'abc_cd_code type_code',
-            "type_code.CODE = po.PO_TYPE
-            AND type_code.HEAD_CODE = 'PO'",
-            'left'
-        );
-
-        // ================= MATERIAL =================
-        $this->db->join(
-            'abc_cd_material material',
-            'material.MATERIAL = po.MATERIAL',
-            'left'
-        );
-
-        // ================= WHERE =================
-        $this->db->where('po.PLANT', $plant);
-
-        $this->db->where('po.PO', $po);
-
-        $this->db->where('po.DELETED IS NULL', null, false);
-
-        // ================= NON ADMIN =================
-        if ((int)$role_id !== 1) {
-
-            $this->db->where(
-                'po.CREATED_BY',
-                $username
-            );
-        }
-
-        return $this->db->get()->row_array();
-    }
-
-    public function get_detail($plant, $po)
-    {
-        $this->db->select('d.*, m.MATERIAL_NAME AS MATERIAL_NAME');
-        $this->db->from('abc_mst_po_detail d');
-        $this->db->join(
-            'abc_cd_material m',
-            'm.MATERIAL COLLATE utf8mb4_unicode_ci = d.MATERIAL COLLATE utf8mb4_unicode_ci',
-            'left',
-            false
-        );
-        $this->db->where('d.PLANT', $plant);
-        $this->db->where('d.PO', $po);
-        $this->db->order_by('d.ID', 'ASC');
-        return $this->db->get()->result_array();
-    }
-
-    public function get_detail_for_edit($plant, $po)
-    {
-        $this->db->select("
-            d.*,
-
-            customer.FULL_NAME AS CUSTOMER_NAME
-        ");
-
-        $this->db->from('abc_mst_po_detail d');
-
-        // ================= CUSTOMER =================
-        $this->db->join(
-            'abc_cd_customer customer',
-            'customer.CUST = d.CUSTOMER',
-            'left'
-        );
-
-        // ================= WHERE =================
-        $this->db->where('d.PLANT', $plant);
-
-        $this->db->where('d.PO', $po);
-
-        $this->db->order_by(
-            'd.SEQ_NO',
-            'ASC'
-        );
-
-        return $this->db->get()->result_array();
-    }
-
-    public function get_header_only($plant, $po)
-    {
-        return $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->where('DELETED IS NULL', null, false)
-            ->get('abc_mst_po')
-            ->row();
-    }
-
-    public function user_can_access_po(
-        $plant,
-        $po,
-        $username,
-        $role_id
-    )
-    {
-        // ================= ADMIN =================
-        if ((int)$role_id === 1) {
-
-            return true;
-        }
-
-        return $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->where('CREATED_BY', $username)
-            ->where('DELETED IS NULL', null, false)
-            ->count_all_results('abc_mst_po') > 0;
-    }
-
-    public function update_header_safe(
-        $plant,
-        $po,
-        $data,
-        $username,
-        $role_id
-    )
-    {
-        if (
-            !$this->user_can_access_po(
-                $plant,
-                $po,
-                $username,
-                $role_id
-            )
-        ) {
-
-            return false;
-        }
-
-        return $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->update('abc_mst_po', $data);
-    }
-
-    /**
-     * Delete detail PO
-     */
-    public function delete_detail($plant, $po)
-    {
-        return $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->delete('abc_mst_po_detail');
-    }
-
-    public function replace_detail_safe($plant, $po, $details, $username)
-    {
-        // pastikan PO ada
-        $exists = $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->count_all_results('abc_mst_po');
-
-        if ($exists === 0) {
-            return false;
-        }
-
-        $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->delete('abc_mst_po_detail');
-
-        $seq = 1;
-        foreach ($details as $row) {
-
-            if (empty($row['MATERIAL'])) continue;
-
-            $this->db->insert('abc_mst_po_detail', [
-                'PLANT'      => $plant,
-                'PO'         => $po,
-                'SEQ_NO'     => $seq++,
-                'MATERIAL'   => $row['MATERIAL'],
-                'CUSTOMER'   => $row['CUSTOMER'] ?? null,
-                'JUMLAH'     => $row['JUMLAH'],
-                'BERAT'      => $row['BERAT'],
-                'HARGA'      => $row['HARGA'],
-                'TOTAL'      => $row['TOTAL'],
-                'UPDATED_AT' => date('Y-m-d H:i:s'),
-                'UPDATED_BY' => $username
+        $line = 1;
+        foreach ($details as $d) {
+            $qty = (int)$d['QTY_EKOR'];
+            $bw = (float)$d['TOTAL_BW'];
+            $price = (float)$d['PRICE'];
+            $basis = $d['CALCULATION_BASIS'];
+            $subtotal = $basis === 'BW' ? $bw * $price : $qty * $price;
+            $this->db->insert($this->detail_table, [
+                'PO_NO'=>$po_no, 'LINE_NO'=>$line++, 'DESCRIPTION'=>$d['DESCRIPTION'],
+                'CALCULATION_BASIS'=>$basis, 'QTY_EKOR'=>$qty, 'TOTAL_BW'=>$bw,
+                'PRICE'=>$price, 'SUBTOTAL'=>round($subtotal,2), 'REMARK'=>$d['REMARK']
             ]);
         }
-
-        return true;
-    }
-
-    /**
-     * Delete header PO
-     */
-    public function delete_header($plant, $po)
-    {
-        return $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->delete('abc_mst_po');
-    }
-
-    public function delete_po_safe($plant, $po, $username, $role_id)
-    {
-        if (!$this->user_can_access_po($plant, $po, $username, $role_id)) {
-            return false;
+        if ($this->db->trans_status() === FALSE) {
+            $this->db->trans_rollback();
+            return ['ok'=>FALSE,'message'=>'Gagal menyimpan data PO. Periksa struktur tabel dan data input.'];
         }
-
-        $this->db->trans_start();
-
-        $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->delete('abc_mst_po_detail');
-
-        $this->db
-            ->where('PLANT', $plant)
-            ->where('PO', $po)
-            ->delete('abc_mst_po');
-
-        $this->db->trans_complete();
-
-        return $this->db->trans_status();
+        $this->db->trans_commit();
+        return ['ok'=>TRUE,'po_no'=>$po_no];
     }
 
-    /**
-     * Export all
-     */
-    public function get_all($search = '', $order = 'PO', $dir = 'ASC')
+    public function get_supplier_by_code($code)
     {
-        if($search != ''){
-            $this->db->group_start();
-            $this->db->like('PO', $search);
-            $this->db->or_like('SUPPLIER', $search);
-            $this->db->or_like('REMARK', $search);
-            $this->db->group_end();
-        }
+        return $this->db->where('CUST', $code)->where('CUST_KIND', 'SUPPLIER')->get('pav_cd_customer')->row_array();
+    }
 
-        $this->db->order_by($order, $dir);
-        return $this->db->get('abc_mst_po')->result();
+    public function generate_po_no()
+    {
+        $prefix = 'PO' . date('Ym');
+        $row = $this->db->select('PO_NO')
+            ->from($this->header_table)
+            ->like('PO_NO', $prefix, 'after')
+            ->order_by('PO_NO', 'DESC')
+            ->limit(1)->get()->row_array();
+
+        $last = 0;
+        if ($row && preg_match('/^' . preg_quote($prefix, '/') . '(\d{5})$/', $row['PO_NO'], $matches)) {
+            $last = (int) $matches[1];
+        }
+        if ($last >= 99999) {
+            return FALSE;
+        }
+        return $prefix . str_pad((string) ($last + 1), 5, '0', STR_PAD_LEFT);
+    }
+
+    private function is_valid_date($date)
+    {
+        if ($date === '') return FALSE;
+        $dt = DateTime::createFromFormat('!Y-m-d', $date);
+        return $dt && $dt->format('Y-m-d') === $date;
     }
 }

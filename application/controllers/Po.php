@@ -1,1224 +1,180 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Po extends MY_Controller {
-
+class PO extends MY_Controller
+{
     public function __construct()
     {
         parent::__construct();
-        if (!has_permission('inventory_po')) {
-            show_404();
-        }
-        $this->load->model('Po_model');
-        $this->load->library('session');
-        $this->load->helper(['url','file','download']);
-
-        error_reporting(E_ALL);
-        ini_set('display_errors', 1);
+        $this->load->model('PO_model', 'po');
     }
 
     public function index()
     {
-        $this->load->view('templates/header', ['title' => 'Purchase Order']);
+        $data = [
+            'title'     => 'Purchase Order',
+            'suppliers' => $this->po->get_supplier_options()
+        ];
+        $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar');
-        $this->load->view('admin/po/list');   // dynamic content
+        $this->load->view('admin/po/list', $data);
         $this->load->view('templates/footer');
     }
 
     public function load_data()
     {
-        $allowedOrder = [
-            'PO',
-            'PO_DATE',
-            'SUPPLIER',
-            'MATERIAL',
-            'CREATED_AT'
+        $page = max(1, (int) $this->input->get('page'));
+        $limit = max(1, min(100, (int) $this->input->get('limit')));
+        $search = trim((string) $this->input->get('search', TRUE));
+        $supplier = trim((string) $this->input->get('supplier', TRUE));
+        $date_from = trim((string) $this->input->get('date_from', TRUE));
+        $date_to = trim((string) $this->input->get('date_to', TRUE));
+        $order = strtoupper(trim((string) $this->input->get('order', TRUE)));
+        $dir = strtoupper(trim((string) $this->input->get('dir', TRUE)));
+
+        $allowed_order = ['PO_NO', 'PO_DATE', 'SUPPLIER_NAME', 'TOTAL_EKOR', 'TOTAL_BW', 'TOTAL_AMOUNT', 'STATUS'];
+        if (!in_array($order, $allowed_order, TRUE)) $order = 'PO_DATE';
+        if (!in_array($dir, ['ASC', 'DESC'], TRUE)) $dir = 'DESC';
+        if ($date_from !== '' && !$this->valid_date($date_from)) $date_from = '';
+        if ($date_to !== '' && !$this->valid_date($date_to)) $date_to = '';
+
+        $filters = [
+            'search' => $search,
+            'supplier' => $supplier,
+            'date_from' => $date_from,
+            'date_to' => $date_to
         ];
 
-        $page = max(
-            1,
-            (int)$this->input->get('page')
-        );
+        $total = $this->po->count_data($filters);
+        $pages = (int) ceil($total / $limit);
+        if ($pages > 0 && $page > $pages) $page = $pages;
+        $offset = ($page - 1) * $limit;
+        $rows = $this->po->get_data($limit, $offset, $filters, $order, $dir);
 
-        $limit = max(
-            1,
-            (int)$this->input->get('limit')
-        );
+        $pagination = '<nav aria-label="PO pagination"><ul class="pagination justify-content-end">';
+        for ($i = 1; $i <= $pages; $i++) {
+            $active = $i === $page ? 'active' : '';
+            $pagination .= '<li class="page-item ' . $active . '"><a class="page-link" href="javascript:loadPage(' . $i . ')">' . $i . '</a></li>';
+        }
+        $pagination .= '</ul></nav>';
 
-        $search = trim(
-            $this->input->get('search', true)
-        );
-
-        $status = trim(
-            $this->input->get('status', true)
-        );
-
-        $dateFrom = trim(
-            $this->input->get('date_from', true)
-        );
-
-        $dateTo = trim(
-            $this->input->get('date_to', true)
-        );
-
-        $orderInput = strtoupper(
-            $this->input->get('order', true)
-        );
-
-        $order = in_array(
-            $orderInput,
-            $allowedOrder
-        )
-            ? $orderInput
-            : 'PO_DATE';
-
-        $dir = strtoupper(
-            $this->input->get('dir', true)
-        ) === 'ASC'
-            ? 'ASC'
-            : 'DESC';
-
-        $start = ($page - 1) * $limit;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SESSION
-        |--------------------------------------------------------------------------
-        */
-
-        $role_id = (int)$this->session
-            ->userdata('role_id');
-
-        $plant = $this->session
-            ->userdata('plant');
-
-        $username = $this->session
-            ->userdata('username');
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $rows = $this->Po_model->get_data(
-            $limit,
-            $start,
-            $role_id,
-            $plant,
-            $username,
-            $search,
-            $order,
-            $dir,
-            $status,
-            $dateFrom,
-            $dateTo
-        );
-
-        $total = $this->Po_model->count_data(
-            $role_id,
-            $plant,
-            $username,
-            $search,
-            $status,
-            $dateFrom,
-            $dateTo
-        );
-
-        $pages = $total > 0
-            ? ceil($total / $limit)
-            : 1;
-
-        echo json_encode([
-
-            'status' => true,
-
+        return $this->json_response([
             'rows' => $rows,
-
-            'total' => (int)$total,
-
-            'page' => (int)$page,
-
-            'pages' => (int)$pages,
-
-            'pagination' => $this->build_pagination(
-                $pages,
-                $page
-            )
-
+            'total' => $total,
+            'pagination' => $pagination,
+            'page' => $page,
+            'pages' => $pages
         ]);
     }
 
-    private function build_pagination($pages, $current)
+    public function detail($po_no = NULL)
     {
-        $html = '<ul class="pagination pagination-sm">';
-        for ($i=1; $i <= $pages; $i++) {
-            $active = ($i == $current) ? 'active' : '';
-            $html .= '<li class="page-item '.$active.'">
-                        <a href="javascript:void(0)" class="page-link" onclick="loadPage('.$i.')">'.$i.'</a>
-                     </li>';
-        }
-        $html .= '</ul>';
-        return $html;
+        if (!$po_no) show_404();
+        $row = $this->po->get_by_pk($po_no);
+        if (!$row) show_404();
+        $data = ['title'=>'Detail Purchase Order', 'header'=>$row, 'details'=>$row['DETAILS']];
+        $this->load->view('templates/header', $data);
+        $this->load->view('templates/sidebar');
+        $this->load->view('admin/po/detail', $data);
+        $this->load->view('templates/footer');
     }
 
-    public function detail()
-    {
-        $po = $this->input->get('po', TRUE);
-        if (!$po) {
-            echo json_encode(['status'=>false,'message'=>'Invalid PO']);
-            return;
-        }
-
-        $header = $this->Po_model->get_header($po);
-        $detail = $this->Po_model->get_detail($po);
-
-        echo json_encode([
-            'status'  => true,
-            'header'  => $header,
-            'detail'  => $detail
-        ]);
-    }
-
-    public function get_supplier()
-    {
-        $term = $this->input->get('q');
-
-        $this->db->select('CUST, FULL_NAME')
-                ->from('abc_cd_customer')
-                ->where('CUST_KIND', 'SUPPLIER')
-                ->where('CUST_CLASS', 'SUPPLIER')
-                ->where('STATUS', 'Y');
-
-        if (!empty($term)) {
-            $this->db->group_start();
-            $this->db->like('CUST', $term);
-            $this->db->or_like('FULL_NAME', $term);
-            $this->db->group_end();
-        }
-
-        $this->db->order_by('CUST', 'ASC');
-        $query = $this->db->get()->result();
-
-        $data = [];
-        foreach ($query as $row) {
-            $data[] = [
-                'id'   => $row->CUST,
-                'text' => $row->CUST . ' - ' . $row->FULL_NAME
-            ];
-        }
-
-        echo json_encode($data);
-    }
-
-    public function get_supplier_by_id()
-    {
-        $cust = $this->input->get('cust');
-
-        $row = $this->db->select('CUST, FULL_NAME')
-            ->from('cd_customer')
-            ->where('CUST', $cust)
-            ->where('CUST_KIND', 'SUPPLIER')
-            ->where('CUST_CLASS', 'SUPPLIER')
-            ->where('STATUS', 'N')
-            ->get()
-            ->row();
-
-        if ($row) {
-            echo json_encode([
-                'id'   => $row->CUST,
-                'text' => $row->CUST . ' - ' . $row->FULL_NAME
-            ]);
-        }
-    }
-
-    public function get_customer()
-    {
-        $term = $this->input->get('q');
-
-        $this->db->select('CUST, FULL_NAME')
-            ->from('abc_cd_customer')
-            ->where('CUST_KIND', 'CUSTOMER')
-            ->where('CUST_CLASS', 'CUSTOMER')
-            ->where('STATUS', 'Y');
-
-        if (!empty($term)) {
-            $this->db->group_start();
-            $this->db->like('CUST', $term);
-            $this->db->or_like('FULL_NAME', $term);
-            $this->db->group_end();
-        }
-
-        $this->db->order_by('CUST', 'ASC');
-
-        $rows = $this->db->get()->result();
-
-        $data = [];
-
-        foreach ($rows as $row) {
-            $data[] = [
-                'id'   => $row->CUST,
-                'text' => $row->CUST . ' - ' . $row->FULL_NAME
-            ];
-        }
-
-        echo json_encode($data);
-    }
-
-    public function get_plant_by_user()
-    {
-        $username = $this->session->userdata('username');
-
-        $data = $this->Po_model->get_plant_select2_by_user($username);
-
-        echo json_encode($data);
-    }
-
-    public function get_plant()
-    {
-        $data = $this->Po_model->get_plant_select2();
-        echo json_encode($data);
-    }
-
-    public function get_material()
-    {
-        $term = $this->input->get('q');
-
-        $this->db->select('material, material_name')
-                ->from('abc_cd_material');
-
-        if (!empty($term)) {
-            $this->db->group_start();
-            $this->db->like('material', $term);
-            $this->db->or_like('material_name', $term);
-            $this->db->group_end();
-        }
-
-        $this->db->order_by('material', 'ASC');
-        $query = $this->db->get()->result();
-
-        $data = [];
-        foreach ($query as $row) {
-            $data[] = [
-                'id'   => $row->material,
-                'text' => $row->material . ' - ' . $row->material_name
-            ];
-        }
-
-        echo json_encode($data);
-    }
-
-    public function get_po_type()
-    {
-        $term = $this->input->get('q');
-
-        $this->db->select('CODE, CODE_NAME')
-            ->from('abc_cd_code')
-            ->where('HEAD_CODE', 'PO')
-            ->where('CODE <>', '*')
-            ->where('USE_YN', 'Y');
-
-        if (!empty($term)) {
-            $this->db->group_start();
-            $this->db->like('CODE', $term);
-            $this->db->or_like('CODE_NAME', $term);
-            $this->db->group_end();
-        }
-
-        $this->db->order_by('HEAD_CODE', 'ASC');
-
-        $rows = $this->db->get()->result();
-
-        $data = [];
-
-        foreach ($rows as $row) {
-            $data[] = [
-                'id'   => $row->CODE,
-                'text' => $row->CODE_NAME
-            ];
-        }
-
-        echo json_encode($data);
-    }
-
-    // ================= CREATE =================
     public function create()
     {
-        header('Content-Type: application/json');
+        $this->render_form('Add Purchase Order', 'po/create', [], []);
 
-        $this->db->trans_begin();
-
-        try {
-
-            // ================= HEADER =================
-            $plant     = trim($this->input->post('PLANT', true));
-            $type      = trim($this->input->post('TYPE', true));
-            $material  = trim($this->input->post('MATERIAL', true));
-
-            $po_date   = trim($this->input->post('PO_DATE', true));
-            $supplier  = trim($this->input->post('SUPPLIER', true));
-
-            $jumlah    = round((float)$this->input->post('JUMLAH'), 2);
-            $berat     = round((float)$this->input->post('BERAT'), 2);
-
-            $harga     = round((float)$this->input->post('HARGA'), 2);
-            $total     = round((float)$this->input->post('TOTAL'), 2);
-
-            $no_truck  = trim($this->input->post('NO_TRUCK', true));
-            $driver    = trim($this->input->post('DRIVER', true));
-
-            $remark    = trim($this->input->post('REMARK', true));
-
-            $detail    = $this->input->post('DETAIL');
-
-            // ================= VALIDATION =================
-            if (
-                empty($plant) ||
-                empty($type) ||
-                empty($material) ||
-                empty($supplier)
-            ) {
-
-                throw new Exception(
-                    'Header PO belum lengkap'
-                );
-            }
-
-            if (empty($po_date)) {
-
-                throw new Exception(
-                    'Tanggal PO wajib diisi'
-                );
-            }
-
-            if ($jumlah <= 0) {
-
-                throw new Exception(
-                    'Jumlah master harus lebih dari 0'
-                );
-            }
-
-            if ($berat <= 0) {
-
-                throw new Exception(
-                    'Berat master harus lebih dari 0'
-                );
-            }
-
-            if (empty($detail) || !is_array($detail)) {
-
-                throw new Exception(
-                    'Minimal 1 detail customer'
-                );
-            }
-
-            // ================= VALIDASI MATERIAL =================
-            $materialExists = $this->db
-                ->where('material', $material)
-                ->count_all_results('abc_cd_material');
-
-            if (!$materialExists) {
-
-                throw new Exception(
-                    'Material tidak valid'
-                );
-            }
-
-            // ================= VALIDASI SUPPLIER =================
-            $supplierExists = $this->db
-                ->where('CUST', $supplier)
-                ->count_all_results('cd_customer');
-
-            if (!$supplierExists) {
-
-                throw new Exception(
-                    'Supplier tidak valid'
-                );
-            }
-
-            // ================= VALIDASI DETAIL =================
-            $detailJumlah = 0;
-            $detailBerat  = 0;
-
-            $customerCheck = [];
-
-            foreach ($detail as $i => $d) {
-
-                $row = $i + 1;
-
-                $customer = trim($d['CUSTOMER'] ?? '');
-
-                $dJumlah  = round((float)($d['JUMLAH'] ?? 0), 2);
-                $dBerat   = round((float)($d['BERAT'] ?? 0), 2);
-
-                $dHarga   = round((float)($d['HARGA'] ?? 0), 2);
-                $dTotal   = round((float)($d['TOTAL'] ?? 0), 2);
-
-                // CUSTOMER
-                if (empty($customer)) {
-
-                    throw new Exception(
-                        "Customer detail baris ke-{$row} wajib dipilih"
-                    );
-                }
-
-                // DUPLICATE CUSTOMER
-                if (in_array($customer, $customerCheck)) {
-
-                    throw new Exception(
-                        "Customer duplicate pada detail baris ke-{$row}"
-                    );
-                }
-
-                $customerCheck[] = $customer;
-
-                // VALIDASI CUSTOMER EXIST
-                $customerExists = $this->db
-                    ->where('CUST', $customer)
-                    ->count_all_results('cd_customer');
-
-                if (!$customerExists) {
-
-                    throw new Exception(
-                        "Customer detail baris ke-{$row} tidak valid"
-                    );
-                }
-
-                // JUMLAH
-                if ($dJumlah <= 0) {
-
-                    throw new Exception(
-                        "Jumlah detail baris ke-{$row} harus lebih dari 0"
-                    );
-                }
-
-                // BERAT
-                if ($dBerat <= 0) {
-
-                    throw new Exception(
-                        "Berat detail baris ke-{$row} harus lebih dari 0"
-                    );
-                }
-
-                $detailJumlah += $dJumlah;
-                $detailBerat  += $dBerat;
-            }
-
-            // ================= VALIDASI TOTAL DETAIL =================
-            if ($detailJumlah > $jumlah) {
-
-                throw new Exception(
-                    'Total jumlah detail melebihi master jumlah'
-                );
-            }
-
-            if ($detailBerat > $berat) {
-
-                throw new Exception(
-                    'Total berat detail melebihi master berat'
-                );
-            }
-
-            // ================= GENERATE PO =================
-            $prefix = 'PO';
-
-            $dateCode = date('ym');
-
-            $q = $this->db
-                ->query("
-                    SELECT MAX(RIGHT(PO,4)) AS seq
-                    FROM abc_mst_po
-                    WHERE LEFT(PO,6) = ?
-                ", [$prefix . $dateCode])
-                ->row();
-
-            $seq = $q && $q->seq
-                ? ((int)$q->seq + 1)
-                : 1;
-
-            $po = $prefix .
-                $dateCode .
-                str_pad($seq, 4, '0', STR_PAD_LEFT);
-
-            // ================= INSERT HEADER =================
-            $header = [
-
-                'PO'         => $po,
-                'PLANT'      => $plant,
-                'PO_DATE'    => $po_date,
-
-                'PO_TYPE'    => $type,
-                'SUPPLIER'   => $supplier,
-
-                'MATERIAL'   => $material,
-
-                'JUMLAH'     => $jumlah,
-                'BERAT'      => $berat,
-
-                'HARGA'      => $harga,
-                'TOTAL'      => $total,
-
-                'NO_TRUCK'   => $no_truck,
-                'DRIVER'     => $driver,
-
-                'REMARK'     => $remark,
-
-                'STATUS'     => 0,
-
-                'CREATED_BY' => $this->session->userdata('username'),
-                'CREATED_AT' => date('Y-m-d H:i:s')
-            ];
-
-            $this->db->insert(
-                'abc_mst_po',
-                $header
-            );
-
-            // ================= INSERT DETAIL =================
-            $seqNo = 1;
-
-            foreach ($detail as $d) {
-
-                $detailInsert = [
-
-                    'PO'       => $po,
-                    'PLANT'    => $plant,
-                    'SEQ_NO'   => $seqNo,
-
-                    'CUSTOMER' => trim($d['CUSTOMER']),
-
-                    'JUMLAH'   => round((float)$d['JUMLAH'], 2),
-                    'BERAT'    => round((float)$d['BERAT'], 2),
-
-                    'HARGA'    => round((float)$d['HARGA'], 2),
-                    'TOTAL'    => round((float)$d['TOTAL'], 2),
-
-                    'CREATED_BY' => $this->session->userdata('username'),
-                    'CREATED_AT' => date('Y-m-d H:i:s')
-                ];
-
-                $this->db->insert(
-                    'abc_mst_po_detail',
-                    $detailInsert
-                );
-
-                $seqNo++;
-            }
-
-            // ================= TRANSACTION CHECK =================
-            if ($this->db->trans_status() === false) {
-
-                throw new Exception(
-                    'Database transaction failed'
-                );
-            }
-
-            // ================= COMMIT =================
-            $this->db->trans_commit();
-
-            echo json_encode([
-                'status'  => true,
-                'message' => 'PO berhasil dibuat',
-                'po'      => $po
-            ]);
-
-        } catch (Exception $e) {
-
-            $this->db->trans_rollback();
-
-            echo json_encode([
-                'status'  => false,
-                'message' => $e->getMessage()
-            ]);
-        }
     }
 
-    public function edit()
+    public function edit($po_no = NULL)
     {
-        $po       = $this->input->get('po', true);
-        $plant    = $this->input->get('plant', true);
-
-        $username = $this->session->userdata('username');
-
-        $role_id  = (int)$this->session->userdata('role_id');
-
-        if (!$po || !$plant) {
-
-            echo json_encode([
-                'status'  => false,
-                'message' => 'Key missing'
-            ]);
-
-            return;
-        }
-
-        // ================= HEADER =================
-        $header = $this->Po_model->get_header_for_edit(
-            $plant,
-            $po,
-            $username,
-            $role_id
-        );
-
-        if (!$header) {
-
-            echo json_encode([
-                'status'  => false,
-                'message' => 'Data tidak ditemukan / tidak punya akses'
-            ]);
-
-            return;
-        }
-
-        // ================= LOCK RECEIVE =================
-        if ((int)$header['STATUS'] === 1) {
-
-            echo json_encode([
-                'status'  => false,
-                'message' => 'PO sudah diproses receive dan tidak dapat diedit'
-            ]);
-
-            return;
-        }
-
-        // ================= DETAIL =================
-        $detail = $this->Po_model->get_detail_for_edit(
-            $plant,
-            $po
-        );
-
-        // ================= FORMAT DATE =================
-        if (!empty($header['PO_DATE'])) {
-
-            $header['PO_DATE'] = date(
-                'Y-m-d',
-                strtotime($header['PO_DATE'])
-            );
-        }
-
-        echo json_encode([
-            'status' => true,
-            'header' => $header,
-            'detail' => $detail
-        ]);
+        if (!$po_no) show_404();
+        show_error('Form Edit Purchase Order akan dibuat pada tahap berikutnya.', 501, 'Module PO dalam pengembangan');
     }
 
-    public function update()
+
+    private function render_form($title, $action, $header, $details)
     {
-        header('Content-Type: application/json');
-
-        $this->db->trans_begin();
-
-        try {
-
-            // ================= KEY =================
-            $po    = $this->input->post('orig_po', true);
-
-            $plant = $this->input->post('PLANT', true);
-
-            $username = $this->session->userdata('username');
-
-            $role_id  = (int)$this->session->userdata('role_id');
-
-            if (empty($po) || empty($plant)) {
-
-                throw new Exception(
-                    'Key PO / PLANT tidak lengkap'
-                );
-            }
-
-            // ================= VALIDATE ACCESS =================
-            if (
-                !$this->Po_model->user_can_access_po(
-                    $plant,
-                    $po,
-                    $username,
-                    $role_id
-                )
-            ) {
-
-                throw new Exception(
-                    'Tidak punya hak update PO ini'
-                );
-            }
-
-            // ================= LOCK RECEIVE =================
-            $current = $this->Po_model->get_header_only(
-                $plant,
-                $po
-            );
-
-            if (!$current) {
-
-                throw new Exception(
-                    'PO tidak ditemukan'
-                );
-            }
-
-            if ((int)$current->STATUS === 1) {
-
-                throw new Exception(
-                    'PO sudah diproses receive'
-                );
-            }
-
-            // ================= HEADER =================
-            $type       = $this->input->post('TYPE', true);
-
-            $supplier   = $this->input->post('SUPPLIER', true);
-
-            $material   = $this->input->post('MATERIAL', true);
-
-            $po_date    = $this->input->post('PO_DATE', true);
-
-            $remark     = $this->input->post('REMARK', true);
-
-            $no_truck   = $this->input->post('NO_TRUCK', true);
-
-            $driver     = $this->input->post('DRIVER', true);
-
-            $jumlah     = (float)$this->input->post('JUMLAH');
-
-            $berat      = (float)$this->input->post('BERAT');
-
-            $harga      = (float)$this->input->post('HARGA');
-
-            $total      = (float)$this->input->post('TOTAL');
-
-            $detail     = $this->input->post('DETAIL');
-
-            // ================= VALIDATION =================
-            if (
-                empty($type) ||
-                empty($supplier) ||
-                empty($material)
-            ) {
-
-                throw new Exception(
-                    'Header PO belum lengkap'
-                );
-            }
-
-            if (empty($detail)) {
-
-                throw new Exception(
-                    'Minimal 1 detail customer'
-                );
-            }
-
-            // ================= VALIDASI DETAIL =================
-            $detailJumlah = 0;
-
-            $detailBerat  = 0;
-
-            foreach ($detail as $d) {
-
-                $detailJumlah += (float)$d['JUMLAH'];
-
-                $detailBerat  += (float)$d['BERAT'];
-            }
-
-            if ($detailJumlah > $jumlah) {
-
-                throw new Exception(
-                    'Jumlah detail melebihi master'
-                );
-            }
-
-            if ($detailBerat > $berat) {
-
-                throw new Exception(
-                    'Berat detail melebihi master'
-                );
-            }
-
-            // ================= UPDATE HEADER =================
-            $header = [
-
-                'PO_DATE'   => $po_date,
-                'PO_TYPE'   => $type,
-                'SUPPLIER'  => $supplier,
-
-                'MATERIAL'  => $material,
-
-                'JUMLAH'    => $jumlah,
-                'BERAT'     => $berat,
-
-                'HARGA'     => $harga,
-                'TOTAL'     => $total,
-
-                'NO_TRUCK'  => $no_truck,
-                'DRIVER'    => $driver,
-
-                'REMARK'    => $remark,
-
-                'UPDATED_BY'=> $username,
-                'UPDATED_AT'=> date('Y-m-d H:i:s')
-            ];
-
-            $this->Po_model->update_header_safe(
-                $plant,
-                $po,
-                $header,
-                $username,
-                $role_id
-            );
-
-            // ================= DELETE OLD DETAIL =================
-            $this->db
-                ->where('PLANT', $plant)
-                ->where('PO', $po)
-                ->delete('abc_mst_po_detail');
-
-            // ================= INSERT DETAIL =================
-            $seqNo = 1;
-
-            foreach ($detail as $d) {
-
-                $insert = [
-
-                    'PO'       => $po,
-                    'PLANT'    => $plant,
-
-                    'SEQ_NO'   => $seqNo,
-
-                    'CUSTOMER' => $d['CUSTOMER'],
-
-                    'JUMLAH'   => (float)$d['JUMLAH'],
-                    'BERAT'    => (float)$d['BERAT'],
-
-                    'HARGA'    => (float)$d['HARGA'],
-                    'TOTAL'    => (float)$d['TOTAL'],
-
-                    'UPDATED_BY' => $username,
-                    'UPDATED_AT' => date('Y-m-d H:i:s')
-                ];
-
-                $this->db->insert(
-                    'abc_mst_po_detail',
-                    $insert
-                );
-
-                $seqNo++;
-            }
-
-            // ================= COMMIT =================
-            if ($this->db->trans_status() === false) {
-
-                throw new Exception(
-                    'Transaction failed'
-                );
-            }
-
-            $this->db->trans_commit();
-
-            echo json_encode([
-                'status'  => true,
-                'message' => 'PO berhasil diperbarui'
-            ]);
-
-        } catch (Exception $e) {
-
-            $this->db->trans_rollback();
-
-            echo json_encode([
-                'status'  => false,
-                'message' => $e->getMessage()
-            ]);
-        }
+        $data = ['title'=>$title, 'page_title'=>$title, 'form_action'=>$action,
+            'header'=>$header, 'details'=>$details, 'suppliers'=>$this->po->get_supplier_options()];
+        $this->load->view('templates/header', $data);
+        $this->load->view('templates/sidebar');
+        $this->load->view('admin/po/form', $data);
+        $this->load->view('templates/footer');
     }
 
-    public function remove()
+    private function submit_form($po_no = NULL)
     {
-        $po       = $this->input->post('po', TRUE);
-        $plant    = $this->input->post('plant', TRUE); // ← dari JS
-        $username = $this->session->userdata('username');
-        $role_id  = (int)$this->session->userdata('role_id');
+        $this->load->library('form_validation');
+        $this->form_validation->set_rules('PO_DATE', 'Tanggal PO', 'required|callback_valid_date');
+        $this->form_validation->set_rules('SUPPLIER', 'Supplier', 'required');
+        $this->form_validation->set_rules('TRUCK_NO', 'No. Truck', 'required|callback_valid_truck');
+        $this->form_validation->set_rules('DRIVER_NAME', 'Nama Driver', 'required|trim|max_length[100]');
+        if (!$this->form_validation->run()) return;
+        $supplier = $this->po->get_supplier_by_code($this->input->post('SUPPLIER', TRUE));
+        if (!$supplier) { $this->session->set_flashdata('po_error', 'Supplier tidak valid.'); redirect($po_no ? 'po/edit/'.$po_no : 'po/create'); return; }
 
-        if (!$po || !$plant) {
-            echo json_encode([
-                'status'  => false,
-                'message' => 'Invalid key'
-            ]);
-            return;
+        $basis = $this->input->post('CALCULATION_BASIS');
+        $descs = $this->input->post('DESCRIPTION');
+        $qtys = $this->input->post('QTY_EKOR');
+        $bws = $this->input->post('TOTAL_BW');
+        $prices = $this->input->post('PRICE');
+        $remarks = $this->input->post('DETAIL_REMARK');
+        $details = [];
+        if (!is_array($basis) || count($basis) < 1) {
+            $this->session->set_flashdata('po_error', 'Minimal satu baris detail wajib diisi.');
+            redirect($po_no ? 'po/edit/'.$po_no : 'po/create'); return;
         }
-
-        $deleted = $this->Po_model->delete_po_safe(
-            $plant,
-            $po,
-            $username,
-            $role_id
-        );
-
-        echo json_encode([
-            'status'  => (bool)$deleted,
-            'message' => $deleted
-                ? 'PO berhasil dihapus'
-                : 'Gagal menghapus PO / tidak punya akses'
-        ]);
+        foreach ($basis as $i => $b) {
+            $q = isset($qtys[$i]) ? (float)$qtys[$i] : 0;
+            $bw = isset($bws[$i]) ? (float)$bws[$i] : 0;
+            $price = isset($prices[$i]) ? (float)$prices[$i] : -1;
+            $desc = trim(strip_tags($descs[$i] ?? ''));
+            if (!in_array($b, ['EKOR','BW'], TRUE) || $q < 1 || floor($q) != $q || $bw <= 0 || $price < 0 || $desc === '') {
+                $this->session->set_flashdata('po_error', 'Detail tidak valid. Ekor harus bilangan bulat, BW lebih dari 0, dan harga tidak boleh negatif.');
+                redirect($po_no ? 'po/edit/'.$po_no : 'po/create'); return;
+            }
+            $details[] = ['CALCULATION_BASIS'=>$b,'DESCRIPTION'=>$desc,'QTY_EKOR'=>$q,'TOTAL_BW'=>$bw,'PRICE'=>$price,'REMARK'=>trim(strip_tags($remarks[$i] ?? ''))];
+        }
+        $header = ['PO_DATE'=>$this->input->post('PO_DATE', TRUE),'PLANT'=>'0001',
+            'SUPPLIER'=>$supplier['CUST'],'TRUCK_NO'=>strtoupper(preg_replace('/\s+/', ' ', trim($this->input->post('TRUCK_NO', TRUE)))),
+            'DRIVER_NAME'=>trim($this->input->post('DRIVER_NAME', TRUE)),
+            'REMARK'=>trim($this->input->post('REMARK', TRUE))];
+        $result = $this->po->save_po($header, $details, $po_no);
+        if (!$result['ok']) { $this->session->set_flashdata('po_error', $result['message']); redirect($po_no ? 'po/edit/'.$po_no : 'po/create'); return; }
+        redirect('po/detail/'.rawurlencode($result['po_no']));
     }
 
-    public function print_pdf()
+    public function valid_truck($value)
     {
-        $po    = $this->input->get('po', true);
-
-        $plant = $this->input->get('plant', true);
-
-        if (!$po || !$plant) {
-
-            show_error(
-                'Parameter PO / PLANT tidak lengkap'
-            );
+        $value = strtoupper(preg_replace('/\s+/', ' ', trim($value)));
+        if (!preg_match('/^[A-Z]{1,2} [0-9]{1,4} [A-Z]{1,3}$/', $value)) {
+            $this->form_validation->set_message('valid_truck', 'Format No. Truck harus seperti B 9123 XYZ.');
+            return FALSE;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | HEADER
-        |--------------------------------------------------------------------------
-        */
-        $header = $this->db
-            ->select("
-                p.PO,
-
-                p.PLANT,
-
-                plant.CODE_NAME AS PLANT_NAME,
-
-                p.PO_DATE,
-
-                p.PO_TYPE,
-
-                type.CODE_NAME AS PO_NAME,
-
-                p.SUPPLIER,
-
-                supplier.FULL_NAME AS SUPPLIER_NAME,
-
-                p.MATERIAL,
-
-                material.MATERIAL_NAME,
-
-                p.JUMLAH,
-
-                p.BERAT,
-
-                p.HARGA,
-
-                p.TOTAL,
-
-                p.NO_TRUCK,
-
-                p.DRIVER,
-
-                p.STATUS,
-
-                p.REMARK
-            ", false)
-
-            ->from('abc_mst_po p')
-
-            // ================= PLANT =================
-            ->join(
-                'abc_cd_code plant',
-                "plant.HEAD_CODE='PLANT'
-                AND plant.CODE COLLATE utf8mb4_unicode_ci =
-                p.PLANT COLLATE utf8mb4_unicode_ci",
-                'left',
-                false
-            )
-
-            // ================= TYPE =================
-            ->join(
-                'abc_cd_code type',
-                "type.HEAD_CODE='PO'
-                AND type.CODE COLLATE utf8mb4_unicode_ci =
-                p.PO_TYPE COLLATE utf8mb4_unicode_ci",
-                'left',
-                false
-            )
-
-            // ================= SUPPLIER =================
-            ->join(
-                'abc_cd_customer supplier',
-                "supplier.CUST COLLATE utf8mb4_unicode_ci =
-                p.SUPPLIER COLLATE utf8mb4_unicode_ci",
-                'left',
-                false
-            )
-
-            // ================= MATERIAL =================
-            ->join(
-                'abc_cd_material material',
-                "material.MATERIAL COLLATE utf8mb4_unicode_ci =
-                p.MATERIAL COLLATE utf8mb4_unicode_ci",
-                'left',
-                false
-            )
-
-            ->where('p.PO', $po)
-
-            ->where('p.PLANT', $plant)
-
-            ->where('p.DELETED IS NULL', null, false)
-
-            ->get()
-
-            ->row();
-
-        if (!$header) {
-
-            show_error('PO tidak ditemukan');
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | DETAIL
-        |--------------------------------------------------------------------------
-        */
-        $detail = $this->db
-            ->select("
-                d.SEQ_NO,
-
-                d.CUSTOMER,
-
-                customer.FULL_NAME AS CUSTOMER_NAME,
-
-                d.JUMLAH,
-
-                d.BERAT,
-
-                d.HARGA,
-
-                d.TOTAL
-            ", false)
-
-            ->from('abc_mst_po_detail d')
-
-            // ================= CUSTOMER =================
-            ->join(
-                'abc_cd_customer customer',
-                "customer.CUST COLLATE utf8mb4_unicode_ci =
-                d.CUSTOMER COLLATE utf8mb4_unicode_ci",
-                'left',
-                false
-            )
-
-            ->where('d.PO', $po)
-
-            ->where('d.PLANT', $plant)
-
-            ->order_by('d.SEQ_NO', 'ASC')
-
-            ->get()
-
-            ->result();
-
-        if (empty($detail)) {
-
-            show_error(
-                'Detail PO tidak ditemukan'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUBTOTAL DETAIL
-        |--------------------------------------------------------------------------
-        */
-        $subtotal = [
-            'qty'    => 0,
-            'weight' => 0,
-            'total'  => 0
-        ];
-
-        foreach ($detail as $d) {
-
-            $subtotal['qty']
-                += (float)$d->JUMLAH;
-
-            $subtotal['weight']
-                += (float)$d->BERAT;
-
-            $subtotal['total']
-                += (float)$d->TOTAL;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PREPARE DATA
-        |--------------------------------------------------------------------------
-        */
-        $data = [
-
-            'header'   => $header,
-
-            'detail'   => $detail,
-
-            'subtotal' => $subtotal
-        ];
-
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE HTML
-        |--------------------------------------------------------------------------
-        */
-        $html = $this->load->view(
-            'admin/po/pdf_template',
-            $data,
-            true
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | PDF
-        |--------------------------------------------------------------------------
-        */
-        $this->load->library('pdf');
-
-        $this->pdf->loadHtml($html);
-
-        $this->pdf->setPaper(
-            'A4',
-            'portrait'
-        );
-
-        $this->pdf->render();
-
-        /*
-        |--------------------------------------------------------------------------
-        | STREAM
-        |--------------------------------------------------------------------------
-        */
-        $this->pdf->stream(
-
-            'PO_' . $header->PO . '.pdf',
-
-            [
-                'Attachment' => false
-            ]
-        );
-
-        exit;
+        return TRUE;
     }
 
-    function format_decimal_id($number, $dec = 2)
+    public function valid_date($value)
     {
-        return number_format((float)$number, $dec, ',', '.');
-    }
-
-    function format_rupiah($number)
-    {
-        return number_format((float)$number, 0, ',', '.');
-    }
-
-    private function normalize_number($value)
-    {
-        if ($value === null || $value === '') {
-            return 0;
+        $dt = DateTime::createFromFormat('!Y-m-d', $value);
+        if (!$dt || $dt->format('Y-m-d') !== $value) {
+            $this->form_validation->set_message('valid_date', 'Tanggal PO tidak valid.');
+            return FALSE;
         }
-
-        // hapus titik ribuan, ganti koma desimal (jika ada)
-        return (float) str_replace(['.', ','], ['', '.'], $value);
+        return TRUE;
     }
 
+    private function valid_date_old($date)
+    {
+        $dt = DateTime::createFromFormat('!Y-m-d', $date);
+        return $dt && $dt->format('Y-m-d') === $date;
+    }
+
+    private function json_response($data, $http_code = 200)
+    {
+        return $this->output
+            ->set_status_header($http_code)
+            ->set_content_type('application/json', 'utf-8')
+            ->set_output(json_encode($data));
+    }
 }

@@ -21,4 +21,11 @@ $route['customer/update'] = 'customer/update';
 $route['customer/detail'] = 'customer/detail';
 $route['customer/credit-limit/(:any)'] = 'customer/credit_limit/$1';
 
+// PO ROUTE
+$route['po'] = 'PO/index';
+$route['po/load_data'] = 'PO/load_data';
+$route['po/create'] = 'PO/create';
+$route['po/detail/(:any)'] = 'PO/detail/$1';
+$route['po/edit/(:any)'] = 'PO/edit/$1';
+
 

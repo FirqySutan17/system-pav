@@ -74,6 +74,7 @@
         $codeActive = (strpos($currentUri, 'code') === 0);
         $customerActive = (strpos($currentUri, 'customer') === 0);
         $materialActive = (strpos($currentUri, 'material') === 0);
+        $poActive = (strpos($currentUri, 'po') === 0);
         ?>
 
         <div class="sidebar-profile">
@@ -112,6 +113,14 @@
                     <a href="<?= base_url('material'); ?>" class="sidebar-link <?= $materialActive ? 'active' : ''; ?>">
                         <span class="sidebar-icon"><i class="ti ti-building"></i></span>
                         <span class="hide-menu">Material</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-section-title">Inventory</li>
+                <li class="sidebar-item">
+                    <a href="<?= base_url('po'); ?>" class="sidebar-link <?= $poActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon"><i class="ti ti-building"></i></span>
+                        <span class="hide-menu">Purchase Order</span>
                     </a>
                 </li>
 
