@@ -70,11 +70,35 @@
         if (count($nameParts) > 1 && !empty($nameParts[count($nameParts)-1])) $initials .= strtoupper(substr($nameParts[count($nameParts)-1], 0, 1));
         if ($initials === '') $initials = 'AD';
         $currentUri = trim($this->uri->uri_string(), '/');
-        $dashboardActive = ($currentUri === 'dashboard' || $currentUri === '');
+
+        $dashboardActive = (
+            $currentUri === 'dashboard' ||
+            $currentUri === ''
+        );
+
         $codeActive = (strpos($currentUri, 'code') === 0);
         $customerActive = (strpos($currentUri, 'customer') === 0);
         $materialActive = (strpos($currentUri, 'material') === 0);
+
+        $orderApprovalActive = (
+            strpos($currentUri, 'order/approval') === 0
+        );
+
+        $orderActive = (
+            strpos($currentUri, 'order') === 0 &&
+            !$orderApprovalActive
+        );
+
         $poActive = (strpos($currentUri, 'po') === 0);
+
+        $username = strtolower(trim(
+            (string) $this->session->userdata('username')
+        ));
+
+        $isOrderApprover = in_array($username, [
+            'pavamir',
+            'pavthomas'
+        ], TRUE);
         ?>
 
         <div class="sidebar-profile">
@@ -116,10 +140,47 @@
                     </a>
                 </li>
 
-                <li class="sidebar-section-title">Inventory</li>
+                <li class="sidebar-section-title">Transaksi</li>
+
+                <!-- ORDER -->
                 <li class="sidebar-item">
-                    <a href="<?= base_url('po'); ?>" class="sidebar-link <?= $poActive ? 'active' : ''; ?>">
-                        <span class="sidebar-icon"><i class="ti ti-building"></i></span>
+                    <a href="<?= base_url('order'); ?>"
+                    class="sidebar-link <?= $orderActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-shopping-cart"></i>
+                        </span>
+
+                        <span class="hide-menu">Order</span>
+                    </a>
+                </li>
+
+                <!-- APPROVAL ORDER -->
+                <?php if ($isOrderApprover): ?>
+
+                <li class="sidebar-item">
+                    <a href="<?= base_url('order/approval_index'); ?>"
+                    class="sidebar-link <?= $orderApprovalActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-clipboard-check"></i>
+                        </span>
+
+                        <span class="hide-menu">Approval Order</span>
+                    </a>
+                </li>
+
+                <?php endif; ?>
+
+                <!-- PURCHASE ORDER -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('po'); ?>"
+                    class="sidebar-link <?= $poActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-file-invoice"></i>
+                        </span>
+
                         <span class="hide-menu">Purchase Order</span>
                     </a>
                 </li>

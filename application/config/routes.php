@@ -28,4 +28,44 @@ $route['po/create'] = 'PO/create';
 $route['po/detail/(:any)'] = 'PO/detail/$1';
 $route['po/edit/(:any)'] = 'PO/edit/$1';
 
+// =====================================================
+// ORDER
+// =====================================================
+
+$route['order'] = 'order/index';
+$route['order/create'] = 'order/create';
+$route['order/save'] = 'order/save';
+$route['order/detail/(:any)'] = 'order/detail/$1';
+
+$route['order/customer_credit_info/(:any)'] =
+    'order/customer_credit_info/$1';
+
+$route['order/cancel/(:any)'] =
+    'order/cancel_action/$1';
+
+
+// =====================================================
+// ORDER EDIT
+// =====================================================
+
+$route['order/edit_customer_action/(:any)'] =
+    'order/edit_customer_action/$1';
+
+$route['order/edit_supplier_action/(:any)'] =
+    'order/edit_supplier_action/$1';
+
+
+// =====================================================
+// ORDER APPROVAL
+// =====================================================
+
+$route['order/approval'] =
+    'order/approval_index';
+
+$route['order/approval_detail/(:num)'] =
+    'order/approval_detail/$1';
+
+$route['order/approval_action/(:num)'] =
+    'order/approval_action/$1';
+
 
