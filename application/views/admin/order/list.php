@@ -372,7 +372,7 @@ $totalRecords = count($orders);
     margin-top: 4px;
 
     color: #94a3b8;
-    font-size: .72rem;
+    font-size: 10px;
     line-height: 1.4;
 }
 
@@ -1089,9 +1089,9 @@ $totalRecords = count($orders);
 
                             <th>Order Date</th>
 
-                            <th>Customer</th>
+                            <th class="text-center">Customer</th>
 
-                            <th>Supplier</th>
+                            <th class="text-center">Supplier</th>
 
                             <th class="text-end">
                                 Sales Total
@@ -1143,17 +1143,17 @@ $totalRecords = count($orders);
                                             href="<?= base_url('order/detail/' . rawurlencode($row['ORDER_NO'])); ?>"
                                             class="order-code"
                                         >
-                                            <?= html_escape($row['ORDER_NO']); ?>
+                                            #<?= html_escape($row['ORDER_NO']); ?>
                                         </a>
 
                                         <span class="child-order">
                                             CO:
-                                            <?= html_escape($row['ORDER_CUSTOMER_NO'] ?: '-'); ?>
+                                            #<?= html_escape($row['ORDER_CUSTOMER_NO'] ?: '-'); ?>
                                         </span>
 
                                         <span class="child-order">
                                             OS:
-                                            <?= html_escape($row['ORDER_SUPPLIER_NO'] ?: '-'); ?>
+                                            #<?= html_escape($row['ORDER_SUPPLIER_NO'] ?: '-'); ?>
                                         </span>
 
                                     </td>
@@ -1168,7 +1168,7 @@ $totalRecords = count($orders);
 
                                     <!-- CUSTOMER -->
 
-                                    <td>
+                                    <td class="text-center">
 
                                         <span class="party-code">
                                             <?= html_escape($row['CUST']); ?>
@@ -1186,7 +1186,7 @@ $totalRecords = count($orders);
 
                                     <!-- SUPPLIER -->
 
-                                    <td>
+                                    <td class="text-center">
 
                                         <span class="party-code">
                                             <?= html_escape($row['SUPPLIER']); ?>

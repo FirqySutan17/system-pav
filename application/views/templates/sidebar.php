@@ -91,6 +91,10 @@
 
         $poActive = (strpos($currentUri, 'po') === 0);
 
+        $creditNoteActive = (strpos($currentUri, 'credit_note') === 0);
+
+        $creditNoteApprovalActive = (strpos($currentUri, 'credit_note/approval') === 0);
+
         $username = strtolower(trim(
             (string) $this->session->userdata('username')
         ));
@@ -155,6 +159,19 @@
                     </a>
                 </li>
 
+                <!-- CREDIT NOTE -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('credit_note'); ?>"
+                    class="sidebar-link <?= $creditNoteActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-file-invoice"></i>
+                        </span>
+
+                        <span class="hide-menu">Credit Note</span>
+                    </a>
+                </li>
+
                 <!-- APPROVAL ORDER -->
                 <?php if ($isOrderApprover): ?>
 
@@ -170,20 +187,19 @@
                     </a>
                 </li>
 
-                <?php endif; ?>
-
-                <!-- PURCHASE ORDER -->
                 <li class="sidebar-item">
-                    <a href="<?= base_url('po'); ?>"
-                    class="sidebar-link <?= $poActive ? 'active' : ''; ?>">
-
+                    <a href="<?= base_url('credit_note/approval'); ?>"
+                    class="sidebar-link <?= $creditNoteApprovalActive ? 'active' : ''; ?>">
                         <span class="sidebar-icon">
-                            <i class="ti ti-file-invoice"></i>
+                            <i class="ti ti-clipboard-check"></i>
                         </span>
-
-                        <span class="hide-menu">Purchase Order</span>
+                        <span class="hide-menu">Approval Credit Note</span>
                     </a>
                 </li>
+
+                <?php endif; ?>
+
+
 
             </ul>
         </nav>

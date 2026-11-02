@@ -292,10 +292,7 @@ class Order_model extends CI_Model
         $basic_credit = (float) $credit['BASIC_CREDIT'];
 
         // Gunakan perhitungan Outstanding yang sama dengan validasi Save Order
-        $outstanding = $this->get_outstanding_credit(
-    $cust,
-    $exclude_order_customer_id
-);
+        $outstanding = $this->get_outstanding_credit($cust);
 
         $is_active =
             strtoupper($credit['STATUS']) === 'ACTIVE' &&

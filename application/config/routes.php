@@ -68,4 +68,31 @@ $route['order/approval_detail/(:num)'] =
 $route['order/approval_action/(:num)'] =
     'order/approval_action/$1';
 
+// =====================================================
+// CREDIT NOTE
+// =====================================================
+
+$route['credit_note'] = 'credit_note/index';
+
+// List
+$route['credit_note/get_list'] = 'credit_note/get_list';
+
+// Order selection
+$route['credit_note/get_order_options'] = 'credit_note/get_order_options';
+$route['credit_note/get_order_detail'] = 'credit_note/get_order_detail';
+
+// Detail & Edit
+$route['credit_note/get_detail/(:num)'] = 'credit_note/get_detail/$1';
+
+// Save / Update
+$route['credit_note/save'] = 'credit_note/save';
+
+$route['credit_note/approval'] = 'credit_note/approval';
+
+$route['credit_note/approval_detail/(:num)'] =
+    'credit_note/approval_detail/$1';
+
+$route['credit_note/approval_action/(:num)'] =
+    'credit_note/approval_action/$1';
+
 
