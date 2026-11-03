@@ -106,6 +106,9 @@
             'pavamir',
             'pavthomas'
         ], TRUE);
+
+        $paymentActive = (strpos($currentUri, 'payment') === 0);
+        $cashinActive = (strpos($currentUri, 'cashin') === 0);
         ?>
 
         <div class="sidebar-profile">
@@ -202,7 +205,32 @@
 
                 <?php endif; ?>
 
+                <li class="sidebar-section-title">Accounting</li>
 
+                <!-- PAYMENT -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('payment'); ?>"
+                    class="sidebar-link <?= $paymentActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-cash"></i>
+                        </span>
+
+                        <span class="hide-menu">Payment Supplier</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-item">
+                    <a href="<?= base_url('cashin'); ?>"
+                    class="sidebar-link <?= $cashinActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-cash"></i>
+                        </span>
+
+                        <span class="hide-menu">Cash In Customer</span>
+                    </a>
+                </li>
 
             </ul>
         </nav>

@@ -95,4 +95,44 @@ $route['credit_note/approval_detail/(:num)'] =
 $route['credit_note/approval_action/(:num)'] =
     'credit_note/approval_action/$1';
 
+// =====================================================
+// PAYMENT ROUTES
+// =====================================================
+
+// Payment List
+$route['payment'] = 'payment/index';
+
+// Create Payment
+$route['payment/create'] = 'payment/create';
+
+// Load Outstanding Supplier Orders (AJAX)
+$route['payment/supplier_orders/(:any)'] = 'payment/supplier_orders/$1';
+
+// Save Payment
+$route['payment/save'] = 'payment/save';
+
+// Payment Detail
+$route['payment/detail/(:num)'] = 'payment/detail/$1';
+
+// Edit Payment
+$route['payment/edit/(:num)'] = 'payment/edit/$1';
+
+// Update Payment
+$route['payment/update/(:num)'] = 'payment/update/$1';
+
+// Void Payment
+$route['payment/void/(:num)'] = 'payment/void/$1';
+
+$route['cashin'] = 'CashIn/index';
+$route['cashin/create'] = 'CashIn/create';
+
+$route['cashin/customer_orders/(:any)'] =
+    'CashIn/customer_orders/$1';
+
+$route['cashin/save'] = 'CashIn/save';
+$route['cashin/detail/(:num)'] = 'CashIn/detail/$1';
+$route['cashin/edit/(:num)'] = 'CashIn/edit/$1';
+$route['cashin/update/(:num)'] = 'CashIn/update/$1';
+$route['cashin/void/(:num)'] = 'CashIn/void/$1';
+
 

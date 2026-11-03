@@ -1,3442 +1,475 @@
-<div class="container-fluid">
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
 
-    <div class="card w-100">
+$formatMoney = function ($value) {
+    return number_format((float) $value, 2, ',', '.');
+};
 
-        <div class="card-body">
+$formatDate = function ($value) {
+    if (empty($value)) {
+        return '-';
+    }
 
-            <h5 class="card-title fw-semibold mb-4">
-                CASH IN
-            </h5>
+    $timestamp = strtotime($value);
+    return $timestamp ? date('d/m/Y', $timestamp) : '-';
+};
 
-            <!-- FILTER -->
-            <div class="row mb-3">
+$statusConfig = function ($status) {
+    $status = strtoupper(trim((string) $status));
 
-                <div class="row g-2 mb-3">
+    $config = [
+        'POSTED' => ['class' => 'status-posted', 'label' => 'POSTED'],
+        'VOID'   => ['class' => 'status-void', 'label' => 'VOID']
+    ];
 
-                    <!-- SEARCH -->
-                    <div class="col-md-3">
+    return $config[$status] ?? [
+        'class' => 'status-void',
+        'label' => $status ?: '-'
+    ];
+};
 
-                        <input
-                            id="search"
-                            type="text"
-                            class="form-control"
-                            placeholder="Cari cash in, customer, bon...">
+$totalRecords = count($cash_ins);
+?>
 
-                    </div>
+<style>
+/* =====================================================
+   CASH IN LIST PAGE
+===================================================== */
+.cash-in-page { color: #243247; }
 
-                    <!-- PAYMENT -->
-                    <div class="col-md-2">
+.cash-in-page .page-heading {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; margin:90px 0 22px;
+}
+.cash-in-page .eyebrow {
+    display:inline-flex; align-items:center; gap:7px; color:#64748b;
+    font-size:.76rem; font-weight:700; letter-spacing:.09em;
+    text-transform:uppercase; margin-bottom:7px;
+}
+.cash-in-page .page-title {
+    margin:0; font-size:1.55rem; font-weight:750;
+    letter-spacing:-.035em; color:#172b4d;
+}
+.cash-in-page .page-subtitle { margin:7px 0 0; color:#718096; font-size:.92rem; }
 
-                        <select
-                            id="filterPembayaran"
-                            class="form-control">
+.cash-in-page .panel {
+    border:1px solid #e7edf5; border-radius:16px; background:#fff;
+    box-shadow:0 8px 28px rgba(22,42,75,.055); overflow:hidden;
+}
+.cash-in-page .panel-toolbar {
+    display:grid; grid-template-columns:minmax(0,1fr) auto;
+    align-items:end; gap:16px; padding:20px 22px;
+    border-bottom:1px solid #edf1f7;
+    background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+}
+.cash-in-page .filter-grid {
+    grid-column:1/-1; display:grid;
+    grid-template-columns:minmax(0,1.3fr) minmax(0,.9fr)
+        minmax(0,.9fr) minmax(0,.85fr) minmax(0,.8fr) minmax(0,1.5fr);
+    gap:12px; width:100%; min-width:0;
+}
+.cash-in-page .filter-field { min-width:0; width:100%; }
+.cash-in-page .filter-label {
+    display:block; margin:0 0 6px; color:#718096;
+    font-size:.73rem; font-weight:750; letter-spacing:.04em; text-transform:uppercase;
+}
+.cash-in-page .form-select, .cash-in-page .form-control {
+    width:100%; min-width:0; min-height:44px; box-sizing:border-box;
+    border:1px solid #dfe6f0; border-radius:10px; box-shadow:none;
+    color:#334155; background-color:#fff; font-size:.84rem;
+}
+.cash-in-page .form-select:focus, .cash-in-page .form-control:focus {
+    border-color:#8aa4ff; box-shadow:0 0 0 3px rgba(99,126,255,.12);
+}
+.cash-in-page .search-wrap { position:relative; width:100%; min-width:0; }
+.cash-in-page .search-wrap .search-icon {
+    position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    color:#94a3b8; pointer-events:none;
+}
+.cash-in-page .search-wrap .form-control { padding-left:40px; }
+.cash-in-page .filter-actions {
+    grid-column:1; grid-row:2; display:flex; align-items:center;
+    justify-content:flex-start; gap:8px; min-width:0;
+}
+.cash-in-page .btn-filter {
+    min-height:44px; border-radius:10px; padding:0 15px;
+    font-weight:650; white-space:nowrap; display:inline-flex;
+    align-items:center; justify-content:center;
+}
+.cash-in-page .btn-add {
+    grid-column:2; grid-row:2; display:inline-flex; align-items:center;
+    justify-content:center; gap:8px; justify-self:end; align-self:center;
+    min-height:44px; padding:0 17px; border:0; border-radius:10px;
+    background:linear-gradient(135deg,#627dff,#4965e8); color:#fff;
+    font-weight:650; box-shadow:0 5px 12px rgba(79,103,232,.2);
+    text-decoration:none; white-space:nowrap; transition:transform .15s,box-shadow .15s;
+}
+.cash-in-page .btn-add:hover {
+    color:#fff; transform:translateY(-1px);
+    box-shadow:0 8px 16px rgba(79,103,232,.25);
+}
+.cash-in-page .table-area { padding:10px 12px 0; }
+.cash-in-page .table-responsive { width:100%; overflow-x:auto; }
+.cash-in-page #mainTable {
+    width:100%; margin:0; border-collapse:separate; border-spacing:0; white-space:nowrap;
+}
+.cash-in-page #mainTable thead th {
+    padding:15px 14px; background:#f7f9fc; color:#66758b;
+    font-size:.73rem; text-transform:uppercase; letter-spacing:.055em;
+    font-weight:750; white-space:nowrap; border-top:0; border-bottom:1px solid #e8edf4;
+}
+.cash-in-page #mainTable tbody td {
+    padding:15px 14px; border-bottom:1px solid #edf1f6;
+    color:#43536a; vertical-align:middle; font-size:.86rem;
+}
+.cash-in-page #mainTable tbody tr:hover { background:#f8faff; }
+.cash-in-page #mainTable tbody tr:last-child td { border-bottom:0; }
+.cash-in-page .cash-in-code { font-weight:750; color:#3d58d8; text-decoration:none; }
+.cash-in-page .cash-in-code:hover { color:#263fb7; }
+.cash-in-page .party-code { display:block; color:#243247; font-weight:650; }
+.cash-in-page .party-name {
+    display:block; margin-top:4px; color:#8491a4; font-size:.76rem;
+    max-width:190px; overflow:hidden; text-overflow:ellipsis;
+}
+.cash-in-page .number-cell {
+    font-variant-numeric:tabular-nums; text-align:right; font-weight:650;
+}
+.cash-in-page .order-list {
+    max-width:230px; white-space:normal; line-height:1.7;
+    color:#52658b; font-size:.78rem;
+}
+.cash-in-page .method-badge, .cash-in-page .type-badge {
+    display:inline-flex; align-items:center; padding:6px 9px;
+    border-radius:7px; font-size:.69rem; font-weight:750; letter-spacing:.025em;
+}
+.cash-in-page .method-transfer { color:#425bd4; background:#edf0ff; }
+.cash-in-page .method-cash { color:#087f5b; background:#e8f7f0; }
+.cash-in-page .type-fifo { color:#087f5b; background:#e8f7f0; }
+.cash-in-page .type-manual { color:#9a5a00; background:#fff5df; }
+.cash-in-page .status-badge {
+    display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
+    border-radius:999px; font-size:.7rem; line-height:1; font-weight:750;
+    letter-spacing:.025em;
+}
+.cash-in-page .status-badge:before {
+    content:''; width:6px; height:6px; border-radius:50%; display:inline-block;
+}
+.cash-in-page .status-posted { color:#087f5b; background:#e8f7f0; }
+.cash-in-page .status-posted:before { background:#0b9b6a; }
+.cash-in-page .status-void { color:#c03939; background:#fff0f0; }
+.cash-in-page .status-void:before { background:#dc3545; }
+.cash-in-page .action-cell { width:1%; white-space:nowrap; }
+.cash-in-page .action-group {
+    display:flex; justify-content:center; align-items:center; gap:5px;
+}
+.cash-in-page .panel-footer {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; padding:16px 22px 20px;
+    color:#7b8798; font-size:.84rem;
+}
+.cash-in-page .empty-state { padding:38px 16px!important; text-align:center; color:#8491a4!important; }
+.cash-in-page .empty-state i {
+    display:block; font-size:30px; margin-bottom:10px; color:#c2ccda;
+}
+.cash-in-page .select2-container { width:100%!important; min-width:0; }
+.cash-in-page .select2-container--default .select2-selection--single {
+    height:44px!important; border:1px solid #dfe6f0!important;
+    border-radius:10px!important; background:#fff!important; box-shadow:none!important;
+}
+.cash-in-page .select2-container--default .select2-selection--single .select2-selection__rendered {
+    height:42px; line-height:42px!important; padding-left:13px!important;
+    padding-right:35px!important; color:#334155!important; font-size:.84rem;
+}
+.cash-in-page .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height:42px!important; right:8px!important;
+}
+.cash-in-page .select2-dropdown {
+    border:1px solid #dfe6f0!important; border-radius:10px!important;
+    overflow:hidden; box-shadow:0 8px 24px rgba(22,42,75,.10); z-index:9999;
+}
+.cash-in-page .select2-results__option { padding:9px 13px!important; font-size:.84rem; color:#334155; }
 
-                            <option value="">
-                                Semua Pembayaran
-                            </option>
+@media (max-width:1199px) { .cash-in-page .filter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:991px) { .cash-in-page .filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:767px) {
+    .cash-in-page .page-heading { margin-top:80px; }
+    .cash-in-page .page-title { font-size:1.3rem; }
+    .cash-in-page .panel-toolbar { grid-template-columns:minmax(0,1fr); padding:16px; }
+    .cash-in-page .filter-grid { grid-column:1; grid-template-columns:1fr; }
+    .cash-in-page .filter-actions { grid-column:1; grid-row:auto; width:100%; }
+    .cash-in-page .filter-actions .btn { flex:1; }
+    .cash-in-page .btn-add { grid-column:1; grid-row:auto; justify-self:stretch; width:100%; }
+    .cash-in-page .table-area { padding:0 8px; }
+    .cash-in-page .panel-footer { padding:14px 16px; }
+}
+@media (max-width:480px) {
+    .cash-in-page .filter-actions { flex-direction:column; align-items:stretch; }
+    .cash-in-page .filter-actions .btn { width:100%; }
+    .cash-in-page .panel-footer { flex-direction:column; align-items:flex-start; }
+}
+</style>
 
-                            <option value="CASH">
-                                CASH
-                            </option>
+<div class="container-fluid cash-in-page px-2 px-lg-3 py-2">
 
-                            <option value="TRANSFER">
-                                TRANSFER
-                            </option>
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow"><i class="ti ti-wallet"></i> Accounting</div>
+            <h1 class="page-title">Cash In Management</h1>
+            <p class="page-subtitle">
+                Kelola penerimaan pembayaran Customer dan monitoring alokasi Customer Order.
+            </p>
+        </div>
+    </div>
 
+    <?php if ($this->session->flashdata('cash_in_success')): ?>
+        <div class="alert alert-success alert-dismissible fade show">
+            <i class="ti ti-circle-check me-1"></i>
+            <?= html_escape($this->session->flashdata('cash_in_success')); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($this->session->flashdata('cash_in_error')): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="ti ti-alert-circle me-1"></i>
+            <?= html_escape($this->session->flashdata('cash_in_error')); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <section class="panel">
+        <form method="GET" action="<?= base_url('cashin'); ?>">
+            <div class="panel-toolbar">
+                <div class="filter-grid">
+
+                    <div class="filter-field">
+                        <label class="filter-label" for="filterCustomer">Customer</label>
+                        <select id="filterCustomer" name="customer" class="form-select select2-filter">
+                            <option value="">Semua Customer</option>
+                            <?php if (!empty($customers)): ?>
+                                <?php foreach ($customers as $customer): ?>
+                                    <option value="<?= html_escape($customer['CUST']); ?>"
+                                        <?= $filters['customer'] === $customer['CUST'] ? 'selected' : ''; ?>>
+                                        <?= html_escape($customer['CUST'] . ' - ' . $customer['FULL_NAME']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </select>
-
                     </div>
 
-                    <!-- DATE FROM -->
-                    <div class="col-md-2">
-
-                        <input
-                            type="date"
-                            id="dateFrom"
-                            class="form-control"
-                            value="<?= date('Y-m-01'); ?>">
-
+                    <div class="filter-field">
+                        <label class="filter-label" for="dateFrom">Cash In Date From</label>
+                        <input type="date" id="dateFrom" name="date_from" class="form-control"
+                            value="<?= html_escape($filters['date_from']); ?>">
                     </div>
 
-                    <!-- DATE TO -->
-                    <div class="col-md-2">
-
-                        <input
-                            type="date"
-                            id="dateTo"
-                            class="form-control"
-                            value="<?= date('Y-m-d'); ?>">
-
+                    <div class="filter-field">
+                        <label class="filter-label" for="dateTo">Cash In Date To</label>
+                        <input type="date" id="dateTo" name="date_to" class="form-control"
+                            value="<?= html_escape($filters['date_to']); ?>">
                     </div>
 
-                    <!-- RESET -->
-                    <div class="col-md-1">
-
-                        <button
-                            class="btn btn-light w-100"
-                            id="btnResetFilter">
-
-                            Reset
-
-                        </button>
-
+                    <div class="filter-field">
+                        <label class="filter-label" for="filterMethod">Cash In Method</label>
+                        <select id="filterMethod" name="method" class="form-select">
+                            <option value="">All Methods</option>
+                            <option value="TRANSFER" <?= $filters['method'] === 'TRANSFER' ? 'selected' : ''; ?>>TRANSFER</option>
+                            <option value="CASH" <?= $filters['method'] === 'CASH' ? 'selected' : ''; ?>>CASH</option>
+                        </select>
                     </div>
 
-                    <!-- ADD -->
-                    <div class="col-md-2 text-end">
-
-                        <button
-                            id="btnAdd"
-                            class="btn btn-primary w-100"
-                            data-bs-toggle="modal"
-                            data-bs-target="#CashInAdd">
-
-                            <i class="ti ti-plus"></i>
-
-                            Tambah Cash In
-
-                        </button>
-
+                    <div class="filter-field">
+                        <label class="filter-label" for="filterStatus">Status</label>
+                        <select id="filterStatus" name="status" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="POSTED" <?= $filters['status'] === 'POSTED' ? 'selected' : ''; ?>>POSTED</option>
+                            <option value="VOID" <?= $filters['status'] === 'VOID' ? 'selected' : ''; ?>>VOID</option>
+                        </select>
                     </div>
 
+                    <div class="filter-field">
+                        <label class="filter-label" for="search">Search</label>
+                        <div class="search-wrap">
+                            <i class="ti ti-search search-icon"></i>
+                            <input type="text" id="search" name="search" class="form-control"
+                                placeholder="Cash In No, Slip No, Customer Order..."
+                                value="<?= html_escape($filters['search']); ?>"
+                                aria-label="Search Cash In">
+                        </div>
+                    </div>
                 </div>
 
-            </div>
-
-            <!-- TABLE -->
-            <div class="table-box position-relative">
-
-                <!-- LOADING -->
-                <div id="tableLoading" class="table-loading d-none">
-
-                    <div class="loading-card">
-
-                        <div class="spinner-border text-primary"></div>
-
-                        <div class="mt-3 fw-semibold">
-                            Loading data...
-                        </div>
-
-                        <small class="text-muted">
-                            Please wait a moment
-                        </small>
-
-                    </div>
-
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary btn-filter">
+                        <i class="ti ti-search me-1"></i> Search
+                    </button>
+                    <a href="<?= base_url('cashin'); ?>" class="btn btn-outline-secondary btn-filter">Reset</a>
                 </div>
 
-                <!-- WRAPPER -->
-                <div id="tableWrapper">
-
-                    <div class="table-responsive">
-
-                        <table
-                            class="table table-hover align-middle table-modern"
-                            id="mainTable">
-
-                            <thead>
-
-                                <tr>
-
-                                    <th class="text-center" data-sort="PLANT">
-                                        Plant
-                                    </th>
-
-                                    <th class="text-center" data-sort="CASH_IN">
-                                        Cash In
-                                    </th>
-
-                                    <th class="text-center" data-sort="CASHIN_DATE">
-                                        Date
-                                    </th>
-
-                                    <th class="text-center">
-                                        Customer
-                                    </th>
-
-                                    <th class="text-center" data-sort="PEMBAYARAN">
-                                        Payment
-                                    </th>
-
-                                    <th class="text-center">
-                                        Invoice
-                                    </th>
-
-                                    <th class="text-center" data-sort="TOTAL">
-                                        Total
-                                    </th>
-
-                                    <th class="text-center">
-                                        Status
-                                    </th>
-
-                                    <th class="text-center">
-                                        Remark
-                                    </th>
-
-                                    <th class="text-center">
-                                        #
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody id="table-body"></tbody>
-
-                        </table>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- PAGINATION -->
-            <div class="d-flex justify-content-between mt-3">
-
-                <div id="info"></div>
-
-                <div id="pagination"></div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-<style>
-    #mainTable thead th[data-sort]{
-
-        cursor: pointer;
-
-        user-select: none;
-
-        position: relative;
-
-    }
-
-    #mainTable thead th[data-sort]:hover{
-
-        background: #f8f9fa;
-
-    }
-
-    .modal-body{
-        max-height:75vh;
-        overflow-y:auto;
-    }
-    .table-modern td,
-    .table-modern th{
-
-        white-space: nowrap;
-
-        vertical-align: middle;
-
-    }
-
-    .table-box{
-
-        min-height: 300px;
-
-    }
-
-    .table-loading{
-
-        position: absolute;
-
-        inset: 0;
-
-        z-index: 10;
-
-        background: rgba(255,255,255,.82);
-
-        backdrop-filter: blur(2px);
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: center;
-
-        border-radius: 12px;
-
-    }
-
-    .loading-card{
-
-        text-align: center;
-
-        padding: 28px 40px;
-
-        background: #fff;
-
-        border-radius: 18px;
-
-        box-shadow: 0 10px 30px rgba(0,0,0,.08);
-
-    }
-
-    .loading-hide{
-
-        opacity: .35;
-
-        pointer-events: none;
-
-    }
-
-    .flex-inline {
-
-        padding: 2px 10px;
-
-        margin-bottom: 5px;
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: flex-start;
-
-        align-content: center;
-
-        flex-wrap: nowrap;
-
-        flex-direction: row;
-
-    }
-
-    label {
-
-        width: 35%;
-
-    }
-
-    .space-line {
-
-        border-bottom: 5px double black;
-
-        margin-bottom: 10px
-
-    }
-
-    .modal-xl {
-
-        --bs-modal-width: 90%;
-
-    }
-
-    .detail-row {
-
-        border: 2px solid #efefef !important;
-
-    }
-
-    .select2-container--open {
-
-        z-index: 999999 !important;
-
-    }
-
-    .select2-dropdown {
-
-        position: absolute !important;
-
-    }
-
-    .mode-wrapper{
-
-        display:flex;
-
-        gap:15px;
-
-    }
-
-    .mode-card{
-
-        flex:1;
-
-        border:2px solid #e5e7eb;
-
-        border-radius:16px;
-
-        padding:20px;
-
-        cursor:pointer;
-
-        transition:.2s;
-
-        position:relative;
-
-    }
-
-    .mode-card:hover{
-
-        border-color:#2563eb;
-
-    }
-
-    .mode-card.active{
-        border:2px solid #4e73df;
-        background:#f8fbff;
-    }
-
-    .mode-card input{
-
-        position:absolute;
-
-        opacity:0;
-
-    }
-
-    .mode-card input:checked + .mode-content{
-
-        color:#2563eb;
-
-    }
-
-    .mode-card:has(input:checked){
-
-        border-color:#2563eb;
-
-        background:#eff6ff;
-
-    }
-
-    .mode-title{
-
-        font-weight:700;
-
-        font-size:16px;
-
-    }
-
-    .mode-sub{
-
-        margin-top:5px;
-
-        font-size:13px;
-
-        color:#6b7280;
-
-    }
-
-    .summary-card{
-
-        border-radius:18px;
-
-        padding:20px;
-
-        color:white;
-
-        box-shadow:0 10px 25px rgba(0,0,0,0.08);
-
-    }
-
-    .summary-label{
-
-        font-size:13px;
-
-        opacity:.9;
-
-        margin-bottom:10px;
-
-    }
-
-    .summary-value{
-
-        font-size:24px;
-
-        font-weight:bold;
-
-    }
-
-    .summary-blue{
-
-        background:linear-gradient(135deg,#2563eb,#1d4ed8);
-
-    }
-
-    .summary-green{
-
-        background:linear-gradient(135deg,#10b981,#059669);
-
-    }
-
-    .summary-orange{
-
-        background:linear-gradient(135deg,#f59e0b,#d97706);
-
-    }
-
-    .summary-red{
-
-        background:linear-gradient(135deg,#ef4444,#dc2626);
-
-    }
-
-    input[type="date"]{
-        min-height: 42px;
-    }
-
-    .form-check-inline{
-        margin-top: 6px;
-    }
-
-    .mode-wrapper{
-        display:flex;
-        gap:16px;
-        flex-wrap:wrap;
-    }
-
-    .mode-card{
-        flex:1;
-        min-width:260px;
-    }
-
-</style>
-
-<!-- MODAL ADD CASH IN -->
-<div class="modal fade" id="CashInAdd" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <form id="fCashInAdd">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Cash In - TAMBAH</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-
-                    <!-- HEADER -->
-                    <div class="row g-2 mb-3">
-
-                        <!-- PLANT -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Plant *
-                            </label>
-
-                            <select
-                                name="PLANT"
-                                id="plantAdd"
-                                class="form-control"
-                                required>
-                            </select>
-
-                        </div>
-
-                        <!-- CASH IN -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Cash In
-                            </label>
-
-                            <input
-                                class="form-control"
-                                readonly
-                                placeholder="Auto Generate"
-                                style="background:#efefef">
-
-                        </div>
-
-                        <!-- DATE -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Tanggal *
-                            </label>
-
-                            <input
-                                type="date"
-                                name="CASHIN_DATE"
-                                class="form-control"
-                                required>
-
-                        </div>
-
-                        <!-- PAYMENT -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Pembayaran *
-                            </label>
-
-                            <div style="width:100%">
-
-                                <div class="form-check form-check-inline">
-
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="PEMBAYARAN"
-                                        value="CASH" required>
-
-                                    <label class="form-check-label">
-                                        CASH
-                                    </label>
-
-                                </div>
-
-                                <div class="form-check form-check-inline">
-
-                                    <input
-                                        class="form-check-input"
-                                        type="radio"
-                                        name="PEMBAYARAN"
-                                        value="TRANSFER" required>
-
-                                    <label class="form-check-label">
-                                        TRANSFER
-                                    </label>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <!-- CUSTOMER -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Customer *
-                            </label>
-
-                            <select
-                                id="customerAdd"
-                                class="form-control">
-                            </select>
-
-                            <input
-                                type="hidden"
-                                name="CUSTOMER"
-                                id="hiddenCustomerAdd">
-
-                        </div>
-
-                        <!-- SLIP -->
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Slip No
-                            </label>
-
-                            <input
-                                name="SLIP_NO"
-                                class="form-control"
-                                readonly
-                                placeholder="Auto Generate"
-                                style="background:#efefef">
-
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-
-                            <label class="form-label">
-                                Total Cash In *
-                            </label>
-
-                            <input
-                                type="text"
-                                id="cashInAmount"
-                                name="TOTAL_INPUT"
-                                class="form-control text-end"
-                                placeholder="0"
-                                required>
-
-                        </div>
-
-                        <!-- REMARK -->
-                        <div class="col-md-12 flex-inline">
-
-                            <label
-                                style="width:14.5%"
-                                class="form-label">
-
-                                Remark
-                            </label>
-
-                            <input
-                                name="REMARK"
-                                class="form-control"
-                                placeholder="Keterangan..">
-
-                        </div>
-
-                    </div>
-
-                    <div class="row mb-4">
-
-                        <div class="col-md-12">
-
-                            <div class="mode-wrapper">
-
-                                <!-- FIFO -->
-                                <label class="mode-card">
-
-                                    <input
-                                        type="radio"
-                                        name="MODE_CASH_IN"
-                                        value="FIFO"
-                                        checked>
-
-                                    <div class="mode-content">
-
-                                        <div class="mode-title">
-                                            FIFO AUTO
-                                        </div>
-
-                                        <div class="mode-sub">
-                                            System otomatis offset invoice tertua
-                                        </div>
-
-                                    </div>
-
-                                </label>
-
-                                <!-- MANUAL -->
-                                <label class="mode-card">
-
-                                    <input
-                                        type="radio"
-                                        name="MODE_CASH_IN"
-                                        value="MANUAL">
-
-                                    <div class="mode-content">
-
-                                        <div class="mode-title">
-                                            MANUAL
-                                        </div>
-
-                                        <div class="mode-sub">
-                                            User pilih invoice secara manual
-                                        </div>
-
-                                    </div>
-
-                                </label>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="row mb-4">
-
-                        <!-- TOTAL INPUT -->
-                        <div class="col-md-3">
-
-                            <div class="summary-card summary-blue">
-
-                                <div class="summary-label">
-                                    TOTAL CASH IN
-                                </div>
-
-                                <div
-                                    class="summary-value"
-                                    id="summaryTotalInput">
-
-                                    Rp 0
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <!-- ALLOCATED -->
-                        <div class="col-md-3">
-
-                            <div class="summary-card summary-green">
-
-                                <div class="summary-label">
-                                    ALLOCATED
-                                </div>
-
-                                <div
-                                    class="summary-value"
-                                    id="summaryAllocated">
-
-                                    Rp 0
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <!-- REMAINING -->
-                        <div class="col-md-3">
-
-                            <div class="summary-card summary-orange">
-
-                                <div class="summary-label">
-                                    REMAINING
-                                </div>
-
-                                <div
-                                    class="summary-value"
-                                    id="summaryRemaining">
-
-                                    Rp 0
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <!-- DEPOSIT -->
-                        <div class="col-md-3">
-
-                            <div class="summary-card summary-red">
-
-                                <div class="summary-label">
-                                    DEPOSIT
-                                </div>
-
-                                <div
-                                    class="summary-value"
-                                    id="summaryDeposit">
-
-                                    Rp 0
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div class="d-flex justify-content-end mb-2">
-
-                        <button
-                            type="button"
-                            class="btn btn-success btn-sm"
-                            id="btnPickInvoice">
-
-                            Pilih Invoice
-
-                        </button>
-
-                    </div>
-
-                    <div class="table-responsive">
-
-                        <table
-                            class="table table-bordered align-middle"
-                            id="detailTable">
-
-                            <thead class="table-light">
-
-                                <tr>
-
-                                    <th style="width:15%">
-                                        Sales
-                                    </th>
-
-                                    <th>
-                                        Customer
-                                    </th>
-
-                                    <th style="width:12%" class="text-end">
-                                        Outstanding
-                                    </th>
-
-                                    <th style="width:12%" class="text-end">
-                                        Bayar
-                                    </th>
-
-                                    <th style="width:12%" class="text-end">
-                                        Sisa
-                                    </th>
-
-                                    <th style="width:10%" class="text-center">
-                                        Status
-                                    </th>
-
-                                    <th style="width:20%">
-                                        Remark
-                                    </th>
-
-                                    <th style="width:5%" class="text-center">
-                                        #
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody></tbody>
-
-                        </table>
-
-                    </div>
-
-                    <div class="row mt-3">
-
-                        <div class="col-md-6"></div>
-
-                        <div class="col-md-6">
-
-                            <div class="input-group">
-
-                                <span class="input-group-text fw-bold">
-
-                                    Grand Total
-
-                                </span>
-
-                                <input
-                                    type="text"
-                                    id="grandTotal"
-                                    class="form-control text-end fw-bold"
-                                    readonly
-                                    style="background:#efefef">
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                    <button type="submit" id="btnSaveCashIn" class="btn btn-primary">Simpan</button>
-                </div>
+                <a href="<?= base_url('cashin/create'); ?>" class="btn-add">
+                    <i class="ti ti-plus"></i> Create Cash In
+                </a>
             </div>
         </form>
-    </div>
-</div>
 
-<!-- MODAL EDIT CASH IN -->
-<div class="modal fade" id="CashInEdit" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <form id="fCashInEdit">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Cash In - EDIT</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-
-                    <!-- HIDDEN -->
-                    <input type="hidden" name="CASH_IN" id="CASH_IN_EDIT">
-                    <input type="hidden" name="PLANT" id="PLANT_EDIT">
-
-                    <!-- HEADER (SAMA SEPERTI ADD) -->
-                    <div class="row g-2 mb-3">
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Plant</label>
-                            <input type="text" id="PLANT_NAME_EDIT" class="form-control"
-                                readonly style="background:#efefef">
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Customer *</label>
-                            <input id="CUSTOMER_NAME_EDIT" class="form-control" readonly>
-                            <input type="hidden" name="CUSTOMER" id="CUSTOMER_EDIT">
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">No. Transaksi</label>
-                            <input id="CASH_IN_NO_EDIT" class="form-control" readonly style="background:#efefef">
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label d-block">Pembayaran</label>
-                            <div style="padding:5px 0; width:100%">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="PEMBAYARAN" value="CASH">
-                                    <label class="form-check-label">CASH</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="PEMBAYARAN" value="TRANSFER">
-                                    <label class="form-check-label">TRANSFER</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Slip No *</label>
-                            <input id="SLIP_NO_EDIT" class="form-control" readonly style="background:#efefef">
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">No. Rekening *</label>
-                            <select id="NO_REK_EDIT" name="NO_REK" class="form-control" required></select>
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Tanggal *</label>
-                            <input id="CASHIN_DATE_EDIT" name="CASHIN_DATE" type="date" class="form-control" required>
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Jumlah</label>
-                            <input name="JUMLAH" id="JUMLAH_EDIT" class="form-control">
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">Attachment</label>
-                            <div style="width:100%">
-                                
-                                <input type="file" name="ATTACHMENT" class="form-control mt-1" accept=".jpg,.jpeg,.png,.pdf">
-                                <a id="attachmentPreviewLink" href="#" target="_blank" style="display:none">
-                                    Lihat Attachment Saat Ini
-                                </a>
-                            </div>
-                        </div>
-
-                        <div class="col-md-6 flex-inline">
-                            <label class="form-label">No. Bon *</label>
-                            <input name="BON" id="BON_EDIT" class="form-control">
-                        </div>
-
-                        <div class="col-md-6 mt-2 flex-inline">
-                            <div id="depositInfoBoxEdit" class="alert alert-info py-2 px-3" style="display:none;margin-bottom:0">
-                                💰 Saldo Deposit Customer: <b id="depositAmountEdit">0</b>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- DETAIL FIFO PREVIEW -->
-                    <h5>Preview Alokasi Otomatis (FIFO)</h5>
-                    <table class="table table-bordered" id="stockActualDetailTableEdit">
-                        <thead>
+        <div class="table-area">
+            <div class="table-responsive">
+                <table class="table align-middle" id="mainTable">
+                    <thead>
+                        <tr>
+                            <th>Cash In Number</th>
+                            <th>Cash In Date</th>
+                            <th>Customer</th>
+                            <th class="text-center">Method</th>
+                            <th class="text-center">Type</th>
+                            <th>Slip No</th>
+                            <th>Customer Orders</th>
+                            <th class="text-end">Total Cash In</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                    <?php if (!empty($cash_ins)): ?>
+                        <?php foreach ($cash_ins as $row): ?>
+                            <?php
+                                $status = $statusConfig($row['STATUS']);
+                                $method = strtoupper($row['CASH_IN_METHOD']);
+                                $type = strtoupper($row['CASH_IN_TYPE']);
+                                $methodClass = $method === 'CASH' ? 'method-cash' : 'method-transfer';
+                                $typeClass = $type === 'MANUAL' ? 'type-manual' : 'type-fifo';
+                            ?>
                             <tr>
-                                <th style="text-align:center;">No. Invoice</th>
-                                <th style="text-align:center;">Tanggal Offset</th>
-                                <th style="text-align:center;">Invoice</th>
-                                <th style="text-align:center;">Remain</th>
-                                <th style="text-align:center;">Offset</th>
+                                <td>
+                                    <a href="<?= base_url('cashin/detail/' . (int) $row['CASH_IN_ID']); ?>"
+                                       class="cash-in-code">
+                                        #<?= html_escape($row['CASH_IN_NO']); ?>
+                                    </a>
+                                </td>
+                                <td><?= $formatDate($row['CASH_IN_DATE']); ?></td>
+                                <td>
+                                    <span class="party-code"><?= html_escape($row['CUSTOMER']); ?></span>
+                                    <span class="party-name"
+                                          title="<?= html_escape($row['CUSTOMER_NAME'] ?: '-'); ?>">
+                                        <?= html_escape($row['CUSTOMER_NAME'] ?: '-'); ?>
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="method-badge <?= $methodClass; ?>"><?= html_escape($method); ?></span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="type-badge <?= $typeClass; ?>"><?= html_escape($type); ?></span>
+                                </td>
+                                <td><?= html_escape($row['SLIP_NO'] ?: '-'); ?></td>
+                                <td><div class="order-list">#<?= html_escape($row['ORDER_LIST'] ?: '-'); ?></div></td>
+                                <td class="number-cell"><?= $formatMoney($row['TOTAL_CASH_IN']); ?></td>
+                                <td class="text-center">
+                                    <span class="status-badge <?= $status['class']; ?>">
+                                        <?= html_escape($status['label']); ?>
+                                    </span>
+                                </td>
+                                <td class="action-cell">
+                                    <div class="action-group">
+                                        <a href="<?= base_url('cashin/detail/' . (int) $row['CASH_IN_ID']); ?>"
+                                           class="btn btn-info btn-sm" title="Detail">
+                                            <i class="fa fa-eye"></i>
+                                        </a>
+
+                                        <?php if ($row['STATUS'] === 'POSTED' && empty($row['HAS_LATER_CASH_IN'])): ?>
+                                            <a href="<?= base_url('cashin/edit/' . (int) $row['CASH_IN_ID']); ?>"
+                                               class="btn btn-warning btn-sm" title="Edit">
+                                                <i class="fa fa-edit"></i>
+                                            </a>
+                                            <button type="button"
+                                                class="btn btn-danger btn-sm btn-void-cash-in"
+                                                data-id="<?= (int) $row['CASH_IN_ID']; ?>"
+                                                title="Void">
+                                                <i class="fa fa-ban"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                    <button type="submit" class="btn btn-primary">Update</button>
-                </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="10" class="empty-state">
+                                <i class="ti ti-folder-open"></i>
+                                Tidak ada data Cash In.
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-        </form>
-    </div>
-</div>
-
-<style>
-    #modalPickInvoice {
-        background: #000000c7;
-    }
-</style>
-
-<div
-    class="modal fade"
-    id="modalPickInvoice"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-xl">
-
-        <div class="modal-content">
-
-            <!-- HEADER -->
-            <div class="modal-header">
-
-                <h5 class="modal-title">
-
-                    PILIH INVOICE SALES
-
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal">
-                </button>
-
-            </div>
-
-            <!-- BODY -->
-            <div class="modal-body">
-
-                <!-- SEARCH -->
-                <div class="row mb-3">
-
-                    <div class="col-md-4">
-
-                        <input
-                            type="text"
-                            id="searchInvoice"
-                            class="form-control"
-                            placeholder="Cari sales / customer">
-
-                    </div>
-
-                </div>
-
-                <!-- TABLE -->
-                <div class="table-responsive">
-
-                    <table
-                        class="table table-bordered table-hover align-middle">
-
-                        <thead class="table-light">
-
-                            <tr>
-
-                                <th width="5%" class="text-center">
-                                    #
-                                </th>
-
-                                <th width="15%">
-                                    Sales
-                                </th>
-
-                                <th>
-                                    Customer
-                                </th>
-
-                                <th width="10%" class="text-end">
-                                    Total
-                                </th>
-
-                                <th width="10%" class="text-end">
-                                    Paid
-                                </th>
-
-                                <th width="10%" class="text-end">
-                                    Outstanding
-                                </th>
-
-                                <th width="10%" class="text-center">
-                                    Date
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-                        <tbody id="invoiceListBody"></tbody>
-
-                    </table>
-
-                </div>
-
-            </div>
-
-            <!-- FOOTER -->
-            <div class="modal-footer">
-
-                <button
-                    type="button"
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal">
-
-                    Tutup
-
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-primary"
-                    id="btnChooseInvoice">
-
-                    Pilih Invoice
-
-                </button>
-
-            </div>
-
         </div>
 
-    </div>
-
+        <div class="panel-footer">
+            <div>
+                Menampilkan <strong><?= number_format($totalRecords); ?></strong>
+                dari <strong><?= number_format($totalRecords); ?></strong> data Cash In
+            </div>
+            <div>Total Records: <strong><?= number_format($totalRecords); ?></strong></div>
+        </div>
+    </section>
 </div>
-
-<style>
-    .detail-row {
-        border: 2px solid #efefef !important;
-    }
-</style>
 
 <script>
-    let ajaxListRequest = null;
+$(document).ready(function () {
+    $('.cash-in-page .select2-filter').each(function () {
+        const $select = $(this);
 
-    const state = {
-
-        page  : 1,
-
-        limit : 10,
-
-        order : 'CASHIN_DATE',
-
-        dir   : 'ASC'
-    };
-
-    function cleanNumber(value)
-    {
-        return parseFloat(
-            String(value || 0)
-                .replace(/\./g, '')
-                .replace(/,/g, '.')
-        ) || 0;
-    }
-
-    function formatRupiah(value)
-    {
-        return Number(
-            value || 0
-        ).toLocaleString(
-            'id-ID'
-        );
-    }
-
-    $(document).on(
-        'keyup',
-        '#cashInAmount',
-        function(){
-
-            let value =
-                cleanNumber($(this).val());
-
-            $(this).val(
-                formatRupiah(value)
-            );
-
-            updateSummary();
-
-        }
-    );
-
-    function renderEmptyDetail(message)
-    {
-        $('#detailTable tbody').html(`
-
-            <tr class="empty-row">
-
-                <td
-                    colspan="8"
-                    class="text-center text-muted py-5">
-
-                    ${message}
-
-                </td>
-
-            </tr>
-
-        `);
-    }
-
-    function updateSummary()
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | TOTAL INPUT
-        |--------------------------------------------------------------------------
-        */
-        let mode =
-            $('input[name="MODE_CASH_IN"]:checked').val();
-
-        let totalInput =
-            cleanNumber(
-                $('#cashInAmount').val()
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ALLOCATED
-        |--------------------------------------------------------------------------
-        */
-
-        let allocated = 0;
-
-        $('.pay-input').each(function(){
-
-            allocated += cleanNumber(
-                $(this).val()
-            );
-
-        });
-
-        CURRENT_ALLOCATED = allocated;
-
-        if(mode === 'MANUAL'){
-
-            $('#cashInAmount').val(
-                formatRupiah(allocated)
-            );
-
-            totalInput = allocated;
+        if ($select.hasClass('select2-hidden-accessible')) {
+            $select.select2('destroy');
         }
 
-        $('#detailTable tbody tr').each(function(){
-
-            let bayar =
-                cleanNumber(
-                    $(this)
-                        .find('.pay-input')
-                        .val()
-                );
-
-            allocated += bayar;
-
-        });
-
-        /*
-        |--------------------------------------------------------------------------
-        | REMAINING
-        |--------------------------------------------------------------------------
-        */
-
-        let remaining =
-        Math.max(
-            totalInput - allocated,
-            0
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | DEPOSIT
-        |--------------------------------------------------------------------------
-        */
-
-        let deposit = 0;
-
-        if(remaining > 0){
-
-            deposit = remaining;
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE CARD
-        |--------------------------------------------------------------------------
-        */
-
-        $('#summaryTotalInput').html(
-            'Rp ' + formatRupiah(totalInput)
-        );
-
-        $('#summaryAllocated').html(
-            'Rp ' + formatRupiah(allocated)
-        );
-
-        $('#summaryRemaining').html(
-            'Rp ' + formatRupiah(remaining)
-        );
-
-        $('#summaryDeposit').html(
-            'Rp ' + formatRupiah(deposit)
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | GRAND TOTAL
-        |--------------------------------------------------------------------------
-        */
-
-        $('#grandTotal').val(
-            'Rp ' + formatRupiah(allocated)
-        );
-    }
-
-    $(document).on(
-        'keyup change',
-        '.pay-input',
-        function(){
-
-            updateDetailRow($(this));
-
-            updateSummary();
-
-        }
-    );
-
-    function updateDetailRow(el)
-    {
-        let tr = el.closest('tr');
-
-        let outstanding =
-            cleanNumber(
-                tr.find('.outstanding-value').val()
-            );
-
-        let bayar =
-            cleanNumber(
-                tr.find('.pay-input').val()
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | LIMIT PAYMENT
-        |--------------------------------------------------------------------------
-        */
-
-        if(bayar > outstanding){
-
-            bayar = outstanding;
-
-            tr.find('.pay-input').val(
-                formatRupiah(bayar)
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SISA
-        |--------------------------------------------------------------------------
-        */
-
-        let sisa =
-            outstanding - bayar;
-
-        tr.find('.remaining-text').html(
-            'Rp ' + formatRupiah(sisa)
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        let status = 'UNPAID';
-        let badge  = 'bg-secondary';
-
-        if(bayar > 0){
-
-            status = 'PARTIAL';
-            badge  = 'bg-primary';
-
-        }
-
-        if(
-            bayar >= outstanding &&
-            outstanding > 0
-        ){
-
-            status = 'FULL';
-            badge  = 'bg-success';
-
-        }
-
-        tr.find('.status-cell').html(
-            `
-                <span class="badge ${badge}">
-                    ${status}
-                </span>
-            `
-        );
-    }
-
-    $('.mode-card input').change(function(){
-
-        $('.mode-card')
-            .removeClass('active');
-
-        $(this)
-            .closest('.mode-card')
-            .addClass('active');
-
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | ADD DETAIL ROW
-    |--------------------------------------------------------------------------
-    */
-
-    function addDetailRow(
-        data,
-        isFIFO = false
-    )
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | DEFAULT
-        |--------------------------------------------------------------------------
-        */
-
-        let salesNo =
-            data.SALES || '-';
-
-        let customer =
-            data.CUSTOMER_NAME || '-';
-
-        let outstanding =
-            parseFloat(data.OUTSTANDING || 0);
-
-        let bayar =
-            parseFloat(data.BAYAR || 0);
-
-        let remaining =
-            Math.max(
-                outstanding - bayar,
-                0
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | STATUS
-        |--------------------------------------------------------------------------
-        */
-
-        let status = 'UNPAID';
-        let badge  = 'bg-secondary';
-
-        if(bayar > 0){
-
-            status = 'PARTIAL';
-            badge  = 'bg-primary';
-
-        }
-
-        if(
-            bayar >= outstanding &&
-            outstanding > 0
-        ){
-
-            status = 'FULL';
-            badge  = 'bg-success';
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROW
-        |--------------------------------------------------------------------------
-        */
-
-        let row = `
-
-            <tr class="detail-row">
-
-                <!-- SALES -->
-                <td>
-
-                    <div class="fw-semibold text-primary">
-
-                        #${salesNo}
-
-                    </div>
-
-                    <input
-                        type="hidden"
-                        name="DETAIL[${salesNo}][SALES]"
-                        value="${salesNo}">
-
-                </td>
-
-                <!-- CUSTOMER -->
-                <td>
-
-                    ${customer}
-
-                </td>
-
-                <!-- OUTSTANDING -->
-                <td class="text-end">
-
-                    <div class="fw-semibold">
-
-                        Rp ${formatRupiah(outstanding)}
-
-                    </div>
-
-                    <input
-                        type="hidden"
-                        class="outstanding-value"
-                        value="${outstanding}">
-
-                </td>
-
-                <!-- BAYAR -->
-                <td>
-
-                    <input
-                        type="text"
-                        class="form-control text-end pay-input"
-                        name="DETAIL[${salesNo}][BAYAR]"
-                        value="${formatRupiah(bayar)}"
-                        ${isFIFO ? 'readonly' : ''}
-                    >
-
-                </td>
-
-                <!-- SISA -->
-                <td class="text-end">
-
-                    <div class="remaining-text">
-
-                        Rp ${formatRupiah(remaining)}
-
-                    </div>
-
-                </td>
-
-                <!-- STATUS -->
-                <td class="text-center status-cell">
-
-                    <span class="badge ${badge}">
-
-                        ${status}
-
-                    </span>
-
-                </td>
-
-                <!-- REMARK -->
-                <td>
-
-                    <input
-                        type="text"
-                        class="form-control"
-                        name="DETAIL[${salesNo}][REMARK]"
-                        value="${data.REMARK || ''}">
-
-                </td>
-
-                <!-- ACTION -->
-                <td class="text-center">
-
-                    ${isFIFO ? '' : `
-
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-danger btnDeleteRow">
-
-                            x
-
-                        </button>
-
-                    `}
-
-                </td>
-
-            </tr>
-
-        `;
-        $('#detailTable tbody .empty-row').remove();
-        $('#detailTable tbody')
-            .append(row);
-
-        /*
-        |--------------------------------------------------------------------------
-        | UPDATE
-        |--------------------------------------------------------------------------
-        */
-
-        updateSummary();
-    }
-
-    $(document).on(
-        'click',
-        '.removeRow',
-        function(){
-
-            $(this)
-                .closest('tr')
-                .remove();
-
-            updateSummary();
-
-        }
-    );
-
-    $('#btnPickInvoice').click(function(){
-
-        let customer =
-            $('#hiddenCustomerAdd').val();
-
-        if(!customer){
-
-            alert('Pilih customer terlebih dahulu');
-
-            return;
-
-        }
-
-        loadInvoicePicker();
-
-        $('#modalPickInvoice')
-            .modal('show');
-
-    });
-
-    function loadInvoicePicker()
-    {
-        $.get(
-
-            '<?= base_url("cashin/load_sales_picker"); ?>',
-
-            {
-
-                plant   : $('#plantAdd').val(),
-
-                customer:
-                    $('#hiddenCustomerAdd').val(),
-
-                search  :
-                    $('#searchInvoice').val()
-
-            },
-
-            function(rows){
-
-                let tbody =
-                    $('#invoiceListBody');
-
-                tbody.html('');
-
-                /*
-                |--------------------------------------------------------------------------
-                | EMPTY
-                |--------------------------------------------------------------------------
-                */
-
-                if(rows.length === 0){
-
-                    tbody.html(`
-
-                        <tr>
-
-                            <td
-                                colspan="7"
-                                class="text-center text-muted py-4">
-
-                                Tidak ada invoice outstanding
-
-                            </td>
-
-                        </tr>
-
-                    `);
-
-                    return;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | LOOP
-                |--------------------------------------------------------------------------
-                */
-
-                rows.forEach(function(r){
-
-                    let tr = `
-
-                        <tr>
-
-                            <!-- CHECK -->
-                            <td class="text-center">
-
-                                <input
-                                    type="checkbox"
-                                    class="pickInvoice"
-
-                                    data-sales="${r.SALES}"
-
-                                    data-customer="${r.CUSTOMER}"
-
-                                    data-customer-name="${r.CUSTOMER_NAME}"
-
-                                    data-total="${r.TOTAL}"
-
-                                    data-paid="${r.TOTAL_PAID}"
-
-                                    data-outstanding="${r.OUTSTANDING}"
-
-                                    data-date="${r.SALES_DATE}">
-
-                            </td>
-
-                            <!-- SALES -->
-                            <td>
-
-                                <div class="fw-semibold text-primary">
-
-                                    #${r.SALES}
-
-                                </div>
-
-                            </td>
-
-                            <!-- CUSTOMER -->
-                            <td>
-
-                                ${r.CUSTOMER_NAME || '-'}
-
-                            </td>
-
-                            <!-- TOTAL -->
-                            <td class="text-end">
-
-                                Rp
-                                ${formatRupiah(Number(r.TOTAL))}
-
-                            </td>
-
-                            <!-- PAID -->
-                            <td class="text-end">
-
-                                Rp
-                                ${formatRupiah(Number(r.TOTAL_PAID))}
-
-                            </td>
-
-                            <!-- OUTSTANDING -->
-                            <td class="text-end">
-
-                                <div class="fw-bold text-danger">
-
-                                    Rp
-                                    ${formatRupiah(Number(r.OUTSTANDING))}
-
-                                </div>
-
-                            </td>
-
-                            <!-- DATE -->
-                            <td class="text-center">
-
-                                ${formatDate(r.SALES_DATE)}
-
-                            </td>
-
-                        </tr>
-
-                    `;
-
-                    tbody.append(tr);
-
-                });
-
-            },
-
-            'json'
-        );
-    }
-
-    function toggleCashInMode()
-    {
-        let mode =
-            $('input[name="MODE_CASH_IN"]:checked').val();
-
-        /*
-        |--------------------------------------------------------------------------
-        | FIFO
-        |--------------------------------------------------------------------------
-        */
-
-        if(mode === 'FIFO'){
-
-            $('#cashInAmount')
-                .prop('readonly', false)
-                .css('background', '');
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | MANUAL
-        |--------------------------------------------------------------------------
-        */
-
-        $('#cashInAmount')
-            .prop('readonly', true)
-            .css('background', '#efefef');
-
-        /*
-        |--------------------------------------------------------------------------
-        | AUTO TOTAL FROM DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        updateSummary();
-    }
-
-    $(document).on(
-        'change',
-        'input[name="MODE_CASH_IN"]',
-        function(){
-
-            toggleCashInMode();
-
-        }
-    );
-
-    let searchInvoiceTimer = null;
-
-    $('#searchInvoice').on(
-        'keyup',
-        function(){
-
-            clearTimeout(searchInvoiceTimer);
-
-            searchInvoiceTimer = setTimeout(function(){
-
-                loadInvoicePicker();
-
-            }, 400);
-
-        }
-    );
-
-    $('#btnChooseInvoice').click(function(){
-
-        $('.pickInvoice:checked').each(function(){
-
-            let sales =
-                $(this).data('sales');
-
-            /*
-            |--------------------------------------------------------------------------
-            | PREVENT DUPLICATE
-            |--------------------------------------------------------------------------
-            */
-
-            let exists = false;
-
-            $('#detailTable tbody tr').each(function(){
-
-                let currentSales =
-                    $(this)
-                        .find('[name="DETAIL[][SALES]"]')
-                        .val();
-
-                if(currentSales === sales){
-
-                    exists = true;
-
-                }
-
-            });
-
-            if(exists){
-
-                return;
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | ADD ROW
-            |--------------------------------------------------------------------------
-            */
-
-            addDetailRow({
-
-                SALES :
-                    $(this).data('sales'),
-
-                CUSTOMER_NAME :
-                    $(this).data('customer-name'),
-
-                OUTSTANDING :
-                    $(this).data('outstanding'),
-
-                BAYAR :
-                    $(this).data('outstanding')
-
-            });
-
-        });
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLOSE
-        |--------------------------------------------------------------------------
-        */
-
-        $('#modalPickInvoice')
-            .modal('hide');
-
-    });
-
-    $(document).on(
-        'change',
-        '[name="MODE_CASH_IN"]',
-        function(){
-
-            let mode = $(this).val();
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIFO
-            |--------------------------------------------------------------------------
-            */
-
-            if(mode === 'FIFO'){
-
-                $('#btnPickInvoice')
-                    .hide();
-
-                runFIFOAllocation();
-
-            }
-
-            else{
-
-                $('#btnPickInvoice')
-                    .show();
-
-                renderEmptyDetail(
-                    'Silahkan pilih invoice'
-                );
-
-                updateSummary();
-
-            }
-
-        }
-    );
-
-    $(document).on(
-        'input',
-        '#cashInAmount',
-        function(){
-
-            let value =
-                cleanNumber($(this).val());
-
-            $(this).val(
-                formatRupiah(value)
-            );
-
-            updateSummary();
-
-            let mode =
-                $('input[name="MODE_CASH_IN"]:checked')
-                    .val();
-
-            if(mode === 'FIFO'){
-
-                runFIFOAllocation();
-
-            }
-
-        }
-    );
-
-    $(document).on(
-        'change',
-        'input[name="MODE_CASH_IN"]',
-        function(){
-
-            let mode = $(this).val();
-
-            /*
-            |--------------------------------------------------------------------------
-            | CLEAR
-            |--------------------------------------------------------------------------
-            */
-
-            $('#detailTable tbody')
-                .html('');
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIFO
-            |--------------------------------------------------------------------------
-            */
-
-            if(mode === 'FIFO'){
-
-                $('#btnPickInvoice')
-                    .hide();
-
-                runFIFOAllocation();
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MANUAL
-            |--------------------------------------------------------------------------
-            */
-
-            else{
-
-                $('#btnPickInvoice')
-                    .show();
-
-                renderEmptyDetail(
-                    'Silahkan pilih invoice'
-                );
-
-            }
-
-            updateSummary();
-
-        }
-    );
-
-    function runFIFOAllocation()
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDASI
-        |--------------------------------------------------------------------------
-        */
-
-        let plant =
-            $('#plantAdd').val();
-
-        let customer =
-            $('#hiddenCustomerAdd').val();
-
-        let totalInput =
-            cleanNumber(
-                $('#cashInAmount').val()
-            );
-
-        if(!customer){
-
-            renderEmptyDetail(
-                'Pilih customer terlebih dahulu'
-            );
-
-            return;
-        }
-
-        if(totalInput <= 0){
-
-            renderEmptyDetail(
-                'Input total cash in terlebih dahulu'
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESET TABLE
-        |--------------------------------------------------------------------------
-        */
-
-        $('#detailTable tbody')
-            .html('');
-
-        /*
-        |--------------------------------------------------------------------------
-        | GET FIFO DATA
-        |--------------------------------------------------------------------------
-        */
-
-        $.get(
-
-            '<?= base_url("cashin/load_sales_picker"); ?>',
-
-            {
-
-                plant   : plant,
-
-                customer: customer
-
-            },
-
-            function(rows){
-
-                /*
-                |--------------------------------------------------------------------------
-                | EMPTY
-                |--------------------------------------------------------------------------
-                */
-
-                if(rows.length === 0){
-
-                    renderEmptyDetail(
-                        'Customer tidak memiliki invoice outstanding'
-                    );
-
-                    updateSummary();
-
-                    return;
-                }
-
-                let remainingCash =
-                    totalInput;
-
-                /*
-                |--------------------------------------------------------------------------
-                | LOOP INVOICE
-                |--------------------------------------------------------------------------
-                */
-
-                rows.forEach(function(r){
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | STOP
-                    |--------------------------------------------------------------------------
-                    */
-
-                    if(remainingCash <= 0){
-
-                        return;
-
-                    }
-
-                    let outstanding =
-                        parseFloat(
-                            r.OUTSTANDING || 0
-                        );
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ALLOCATE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    let bayar = 0;
-
-                    if(
-                        remainingCash >= outstanding
-                    ){
-
-                        bayar = outstanding;
-
-                    }else{
-
-                        bayar = remainingCash;
-
-                    }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PUSH ROW
-                    |--------------------------------------------------------------------------
-                    */
-
-                    addDetailRow({
-
-                        SALES :
-                            r.SALES,
-
-                        CUSTOMER_NAME :
-                            r.CUSTOMER_NAME,
-
-                        OUTSTANDING :
-                            outstanding,
-
-                        BAYAR :
-                            bayar
-
-                    }, true);
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | REDUCE
-                    |--------------------------------------------------------------------------
-                    */
-
-                    remainingCash -= bayar;
-
-                });
-
-                /*
-                |--------------------------------------------------------------------------
-                | UPDATE SUMMARY
-                |--------------------------------------------------------------------------
-                */
-
-                updateSummary();
-
-            },
-
-            'json'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CUSTOMER CHANGE
-    |--------------------------------------------------------------------------
-    */
-
-    $(document).on(
-        'select2:select',
-        '#customerAdd',
-        function(e){
-
-            let customerId =
-                e.params.data.id;
-
-            /*
-            |--------------------------------------------------------------------------
-            | SET CUSTOMER
-            |--------------------------------------------------------------------------
-            */
-
-            $('#hiddenCustomerAdd')
-                .val(customerId);
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESET CASH IN
-            |--------------------------------------------------------------------------
-            */
-
-            $('#cashInAmount')
-                .val('');
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESET DETAIL
-            |--------------------------------------------------------------------------
-            */
-
-            $('#detailTable tbody')
-                .html('');
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESET SUMMARY
-            |--------------------------------------------------------------------------
-            */
-
-            updateSummary();
-
-            /*
-            |--------------------------------------------------------------------------
-            | MODE
-            |--------------------------------------------------------------------------
-            */
-
-            let mode =
-                $('[name="MODE_CASH_IN"]:checked')
-                    .val();
-
-            
-            if(mode === 'FIFO'){
-
-                setTimeout(function(){
-
-                    runFIFOAllocation();
-
-                }, 100);
-
-            }
-
-        }
-    );
-
-    $('#customerAdd').on(
-        'change',
-        function(){
-
-            let customer =
-                $(this).val();
-
-            $('#hiddenCustomerAdd')
-                .val(customer);
-
-            /*
-            |--------------------------------------------------------------------------
-            | RESET TABLE
-            |--------------------------------------------------------------------------
-            */
-
-            $('#detailTable tbody')
-                .html('');
-
-            updateSummary();
-
-            /*
-            |--------------------------------------------------------------------------
-            | NO CUSTOMER
-            |--------------------------------------------------------------------------
-            */
-
-            if(!customer){
-
-                renderEmptyDetail(
-                    'Pilih customer terlebih dahulu'
-                );
-
-                return;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MODE
-            |--------------------------------------------------------------------------
-            */
-
-            let mode =
-                $('input[name="MODE_CASH_IN"]:checked')
-                    .val();
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIFO
-            |--------------------------------------------------------------------------
-            */
-
-            if(mode === 'FIFO'){
-
-                runFIFOAllocation();
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MANUAL
-            |--------------------------------------------------------------------------
-            */
-
-            else{
-
-                renderEmptyDetail(
-                    'Silahkan pilih invoice'
-                );
-
-            }
-
-        }
-    );
-
-    $('#plantAdd').change(function(){
-
-        let mode =
-            $('[name="MODE_CASH_IN"]:checked')
-                .val();
-
-        if(mode === 'FIFO'){
-
-            setTimeout(function(){
-
-                runFIFOAllocation();
-
-            }, 100);
-
-        }
-
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOADING
-    |--------------------------------------------------------------------------
-    */
-
-    function showTableLoading()
-    {
-        $('#tableLoading')
-            .removeClass('d-none');
-
-        $('#tableWrapper')
-            .addClass('loading-hide');
-    }
-
-    function hideTableLoading()
-    {
-        $('#tableLoading')
-            .addClass('d-none');
-
-        $('#tableWrapper')
-            .removeClass('loading-hide');
-    }
-
-    function initPlantSelect()
-    {
-        $.get(
-            '<?= base_url("cashin/get_plant_select2"); ?>',
-            function(rows){
-
-                let $el = $('#plantAdd');
-
-                $el.empty();
-
-                rows.forEach(function(row){
-
-                    $el.append(`
-                        <option value="${row.id}">
-                            ${row.text}
-                        </option>
-                    `);
-
-                });
-
-                if(rows.length > 0){
-
-                    $el.val(rows[0].id)
-                    .trigger('change');
-
-                }
-
-            },
-            'json'
-        );
-    }
-
-    $('#btnAddManualRow').on('click', function(){
-        addDetailRow(null, '#manualDetailTable');
-    });
-
-    $(document).on('input', '#JUMLAH_EDIT', function(){
-
-        let customer = $('#CUSTOMER_EDIT').val();
-        let plant    = $('#PLANT_EDIT').val();
-        let amount   = toNumber($(this).val());
-
-        loadFifoPreview(customer, plant, amount, '#stockActualDetailTableEdit', 'sisa-row-edit');
-    });
-
-    function formatDate(dateString) {
-        if (!dateString) return '-';
-
-        const d = new Date(dateString);
-        if (isNaN(d)) return dateString;
-
-        const day = String(d.getDate()).padStart(2, '0');
-        const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
-        const month = months[d.getMonth()];
-        const year = d.getFullYear();
-
-        return `${day} ${month} ${year}`;
-    }
-
-    function loadPage(page = 1)
-    {
-        state.page = page;
-
-        showTableLoading();
-
-        /*
-        |--------------------------------------------------------------------------
-        | ABORT PREVIOUS AJAX
-        |--------------------------------------------------------------------------
-        */
-
-        if(ajaxListRequest){
-
-            ajaxListRequest.abort();
-
-        }
-
-        ajaxListRequest = $.get(
-
-            '<?= base_url("cashin/load_data"); ?>',
-
-            {
-
-                page        : state.page,
-
-                limit       : state.limit,
-
-                search      : $('#search').val(),
-
-                pembayaran  : $('#filterPembayaran').val(),
-
-                date_from   : $('#dateFrom').val(),
-
-                date_to     : $('#dateTo').val(),
-
-                order       : state.order,
-
-                dir         : state.dir
-
-            },
-
-            function(res){
-
-                ajaxListRequest = null;
-
-                if(typeof res === 'string'){
-
-                    res = JSON.parse(res);
-
-                }
-
-                renderTable(res.rows);
-
-                $('#pagination')
-                    .html(res.pagination);
-
-                $('#info').html(
-                    `
-                        Menampilkan halaman
-                        <b>${res.page}</b>
-                        dari
-                        <b>${Math.ceil(res.total / state.limit)}</b>
-
-                        (Total
-                        <b>${res.total}</b>
-                        data)
-                    `
-                );
-
-            },
-
-            'json'
-
-        ).always(function(){
-
-            hideTableLoading();
-
-        });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | RENDER TABLE
-    |--------------------------------------------------------------------------
-    */
-
-    function renderTable(rows)
-    {
-        let tbody = $('#table-body');
-
-        tbody.html('');
-
-        /*
-        |--------------------------------------------------------------------------
-        | EMPTY
-        |--------------------------------------------------------------------------
-        */
-
-        if(rows.length === 0){
-
-            tbody.html(`
-
-                <tr>
-
-                    <td
-                        colspan="10"
-                        class="text-center text-muted py-5">
-
-                        <div class="mb-2">
-
-                            <i
-                                class="ti ti-database-off"
-                                style="font-size:40px">
-                            </i>
-
-                        </div>
-
-                        Tidak ada data cash in
-
-                    </td>
-
-                </tr>
-
-            `);
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | LOOP
-        |--------------------------------------------------------------------------
-        */
-
-        rows.forEach(function(row){
-
-            /*
-            |--------------------------------------------------------------------------
-            | STATUS BADGE
-            |--------------------------------------------------------------------------
-            */
-
-            let statusBadge = `
-                <span class="badge bg-warning">
-                    OPEN
-                </span>
-            `;
-
-            if(row.STATUS === 'PAID'){
-
-                statusBadge = `
-                    <span class="badge bg-success">
-                        PAID
-                    </span>
-                `;
-            }
-            else if(row.STATUS === 'PARTIAL'){
-
-                statusBadge = `
-                    <span class="badge bg-primary">
-                        PARTIAL
-                    </span>
-                `;
-            }
-            else if(row.STATUS === 'DEPOSIT'){
-
-                statusBadge = `
-                    <span class="badge bg-info">
-                        DEPOSIT
-                    </span>
-                `;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | ACTION
-            |--------------------------------------------------------------------------
-            */
-
-            let actionBtn = `
-
-                <div class="btn-group btn-group-sm">
-
-                    <!-- PDF -->
-                    <button
-                        class="btn btn-outline-primary btnPdf"
-                        data-cashin="${row.CASH_IN}"
-                        data-plant="${row.PLANT}">
-
-                        Slip
-
-                    </button>
-
-                </div>
-
-            `;
-
-            let tr = `
-
-                <tr>
-
-                    <!-- PLANT -->
-                    <td class="text-center">
-
-                        ${row.PLANT_NAME || '-'}
-
-                    </td>
-
-                    <!-- CASH IN -->
-                    <td class="text-center">
-
-                        <div class="fw-bold text-primary">
-
-                            #${row.CASH_IN}
-
-                        </div>
-
-                    </td>
-
-                    <!-- DATE -->
-                    <td class="text-center">
-
-                        ${formatDate(row.CASHIN_DATE)}
-
-                    </td>
-
-                    <!-- CUSTOMER -->
-                    <td>
-
-                        ${row.CUSTOMER_NAME || '-'}
-
-                    </td>
-
-                    <!-- PAYMENT -->
-                    <td class="text-center">
-
-                        <span class="
-                            badge
-                            ${
-                                row.PEMBAYARAN === 'CASH'
-                                    ? 'bg-success'
-                                    : 'bg-primary'
-                            }
-                        ">
-
-                            ${row.PEMBAYARAN || '-'}
-
-                        </span>
-
-                    </td>
-
-                    <!-- INVOICE -->
-                    <td class="text-center">
-
-                        <span class="badge bg-warning text-dark">
-
-                            ${row.TOTAL_INVOICE || 0} Invoice
-
-                        </span>
-
-                    </td>
-
-                    <!-- TOTAL -->
-                    <td class="text-end">
-
-                        <div class="fw-bold text-success">
-
-                            Rp ${formatRupiah(
-                                Number(row.AMOUNT || 0)
-                            )}
-
-                        </div>
-
-                    </td>
-
-                    <!-- STATUS -->
-                    <td class="text-center">
-
-                        ${
-                            row.STATUS === 'PAID'
-                                ? '<span class="badge bg-success">PAID</span>'
-                                : row.STATUS === 'PARTIAL'
-                                    ? '<span class="badge bg-primary">PARTIAL</span>'
-                                    : row.STATUS === 'DEPOSIT'
-                                        ? '<span class="badge bg-warning text-dark">DEPOSIT</span>'
-                                        : '<span class="badge bg-secondary">OPEN</span>'
-                        }
-
-                    </td>
-
-                    <!-- REMARK -->
-                    <td>
-
-                        ${row.REMARK || '-'}
-
-                    </td>
-
-                    <!-- ACTION -->
-                    <td class="text-center">
-
-                       <div class="btn-group btn-group-sm">
-
-                            <!-- PDF -->
-                            <button
-                                class="btn btn-outline-primary btnPdf"
-                                data-cashin="${row.CASH_IN}"
-                                data-plant="${row.PLANT}">
-
-                                Slip
-
-                            </button>
-
-                            ${
-                                Number(row.IS_LATEST) === 1
-                                ? `
-
-                                    <button
-                                        class="btn btn-outline-danger btnDelete"
-                                        data-cashin="${row.CASH_IN}"
-                                        data-plant="${row.PLANT}">
-
-                                        Hapus
-
-                                    </button>
-
-                                `
-                                : `
-
-                                    <button
-                                        class="btn btn-outline-secondary"
-                                        disabled
-                                        title="Cash in lama tidak bisa dihapus">
-
-                                        Locked
-
-                                    </button>
-
-                                `
-                            }
-
-                        </div>
-
-                    </td>
-
-                </tr>
-
-            `;
-
-            tbody.append(tr);
-
-        });
-    }
-
-    let searchTimer = null;
-
-    $('#search').on('keyup', function(){
-
-        clearTimeout(searchTimer);
-
-        searchTimer = setTimeout(function(){
-
-            loadPage(1);
-
-        }, 400);
-
-    });
-
-    $('#filterPembayaran').change(function(){
-
-        loadPage(1);
-
-    });
-
-    $('#dateFrom').change(function(){
-
-        loadPage(1);
-
-    });
-
-    $('#dateTo').change(function(){
-
-        loadPage(1);
-
-    });
-
-    $('#btnResetFilter').click(function(){
-
-        $('#search').val('');
-
-        $('#filterPembayaran').val('');
-
-        $('#dateFrom').val(
-            '<?= date('Y-m-01'); ?>'
-        );
-
-        $('#dateTo').val(
-            '<?= date('Y-m-d'); ?>'
-        );
-
-        state.order = 'CASHIN_DATE';
-
-        state.dir = 'DESC';
-
-        loadPage(1);
-
-    });
-
-    $(document).on(
-        'click',
-        '#mainTable thead th',
-        function(){
-
-            let field =
-                $(this).data('sort');
-
-            if(!field){
-
-                return;
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | TOGGLE DIR
-            |--------------------------------------------------------------------------
-            */
-
-            if(state.order === field){
-
-                state.dir =
-                    state.dir === 'ASC'
-                        ? 'DESC'
-                        : 'ASC';
-
-            }else{
-
-                state.order = field;
-
-                state.dir = 'ASC';
-
-            }
-
-            loadPage(1);
-
-        }
-    );
-
-    $(document).on(
-        'click',
-        '.page-link',
-        function(e){
-
-            e.preventDefault();
-
-            let page =
-                $(this).data('page');
-
-            if(page){
-
-                loadPage(page);
-
-            }
-
-        }
-    );
-
-    $(document).on("click", ".btnPdf", function () {
-        let cash_in = $(this).data("cashin");
-        let plant = $(this).data("plant");
-
-        window.open(
-            "<?= base_url('cashin/print_pdf'); ?>?cash_in=" + cash_in + "&plant=" + plant,
-            "_blank"
-        );
-    });
-
-    $('#CashInAdd').on('shown.bs.modal', function () {
-
-        initCustomerSelect2('#customerAdd', '#CashInAdd');
-
-        initRekeningSelect2('#NO_REK', '#CashInAdd');
-
-        initPlantSelect();
-
-        $('input[name="MODE_CASH_IN"][value="FIFO"]')
-            .prop('checked', true)
-            .trigger('change');
-
-        renderEmptyDetail(
-            'Pilih customer terlebih dahulu'
-        );
-
-    });
-
-    $('#CashInEdit').on('shown.bs.modal', function () {
-        initRekeningSelect2('#NO_REK_EDIT', '#CashInEdit');
-    });
-
-    $(document).on('input', '.amount-offset', function () {
-        let raw = this.value.replace(/[^\d]/g, '');
-        this.value = raw;
-    });
-
-    function initCustomerSelect2(selector, modalId){
-
-        if ($(selector).hasClass("select2-hidden-accessible")) {
-            return;
-        }
-
-        $(selector).select2({
-
-            placeholder: "-- PILIH CUSTOMER --",
-
+        $select.select2({
+            width: '100%',
+            placeholder: 'Pilih...',
             allowClear: true,
-
-            dropdownParent: modalId
-                ? $(modalId)
-                : $(document.body),
-
-            width: "100%",
-
-            ajax: {
-
-                url: "<?= base_url('cashin/get_customer'); ?>",
-
-                dataType: "json",
-
-                delay: 250,
-
-                data: function(params){
-
-                    return {
-                        q: params.term
-                    };
-
-                },
-
-                processResults: function(data){
-
-                    return {
-                        results: data
-                    };
-
-                }
-
-            }
-
+            minimumResultsForSearch: 0
         });
-
-    }
-
-    function initRekeningSelect2(selector, modalId){
-        if ($(selector).hasClass("select2-hidden-accessible")) return;
-        $(selector).select2({
-            placeholder: "-- PILIH REKENING --",
-            allowClear: true,
-            dropdownParent: modalId ? $(modalId) : $(document.body),
-            width: "100%",
-            ajax: {
-                url: "<?= base_url('cash-in/get-rekening'); ?>",
-                dataType: "json",
-                delay: 250,
-                data: function(params){
-                    return {
-                        q: params.term
-                    };
-                },
-                processResults: function(data){
-                    return {
-                        results: data
-                    };
-                }
-            }
-        });
-    }
-
-    $('#cashInDetailTableEdit').on('click', '.pickInvoiceBtn', function(){
-        alert('Invoice tidak dapat diganti pada mode edit');
     });
 
-    let CURRENT_ALLOCATED = 0;
-
-    $(function(){
-        loadPage(1);
-
-        $('#fCashInAdd').submit(function(e){
-
-            e.preventDefault();
-
-            /*
-            |--------------------------------------------------------------------------
-            | VALIDASI
-            |--------------------------------------------------------------------------
-            */
-
-            let customer =
-                $('#hiddenCustomerAdd').val();
-
-            if(!customer){
-
-                alert(
-                    'Customer wajib dipilih'
-                );
-
-                return;
-            }
-
-            let mode =
-                $('input[name="MODE_CASH_IN"]:checked').val();
-
-            /*
-            |--------------------------------------------------------------------------
-            | TOTAL INPUT
-            |--------------------------------------------------------------------------
-            */
-
-            let totalInput = 0;
-
-            /*
-            |--------------------------------------------------------------------------
-            | FIFO
-            |--------------------------------------------------------------------------
-            */
-
-            if(mode === 'FIFO'){
-
-                totalInput =
-                    cleanNumber(
-                        $('#cashInAmount').val()
-                    );
-
-                if(totalInput <= 0){
-
-                    alert(
-                        'Total cash in wajib diisi'
-                    );
-
-                    return;
-                }
-
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | MANUAL
-            |--------------------------------------------------------------------------
-            */
-
-            else{
-
-                totalInput = CURRENT_ALLOCATED;
-
-                if(totalInput <= 0){
-
-                    alert(
-                        'Total invoice belum ada'
-                    );
-
-                    return;
-                }
-
-            }
-
-            let detailCount =
-                $('#detailTable tbody tr')
-                    .not('.empty-row')
-                    .length;
-
-            if(detailCount <= 0){
-
-                alert(
-                    'Detail invoice kosong'
-                );
-
-                return;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | VALIDASI BAYAR
-            |--------------------------------------------------------------------------
-            */
-
-            let invalid = false;
-
-            $('.pay-input').each(function(){
-
-                let val =
-                    cleanNumber($(this).val());
-
-                if(val <= 0){
-
-                    invalid = true;
-
-                }
-
-            });
-
-            if(invalid){
-
-                alert(
-                    'Nominal bayar tidak valid'
-                );
-
-                return;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | SAVE
-            |--------------------------------------------------------------------------
-            */
-
-            $('#btnSaveCashIn')
-                .prop('disabled', true)
-                .text('Saving...');
-
-            $.post(
-
-                '<?= base_url("cashin/create"); ?>',
-
-                $(this).serialize(),
-
-                function(res){
-
-                    if(typeof res === 'string'){
-
-                        res = JSON.parse(res);
-
-                    }
-
-                    alert(res.message);
-
-                    if(res.status){
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | RESET
-                        |--------------------------------------------------------------------------
-                        */
-
-                        $('#CashInAdd')
-                            .modal('hide');
-
-                        $('#fCashInAdd')[0]
-                            .reset();
-
-                        $('#detailTable tbody')
-                            .html('');
-
-                        renderEmptyDetail(
-                            'Pilih customer terlebih dahulu'
-                        );
-
-                        $('#customerAdd')
-                            .val(null)
-                            .trigger('change');
-
-                        updateSummary();
-
-                        loadPage(state.page);
-
-                    }
-
-                },
-
-                'json'
-
-            ).always(function(){
-
-                $('#btnSaveCashIn')
-                    .prop('disabled', false)
-                    .text('Simpan');
-
-            });
-
-        });
-
-        $(document).on('click', '.editBtn', function () {
-
-            const cashIn = $(this).data('cashin');
-
-            $.get('<?= base_url("cash-in/edit"); ?>', { cash_in: cashIn }, function(resp){
-
-                if (!resp.status) return alert(resp.message);
-
-                const h = resp.header;
-
-                $('#CASH_IN_EDIT').val(h.CASH_IN);
-                $('#PLANT_EDIT').val(h.PLANT);
-                $('#PLANT_NAME_EDIT').val(h.PLANT_NAME);
-                $('#CUSTOMER_EDIT').val(h.CUSTOMER);
-                $('#CUSTOMER_NAME_EDIT').val(h.CUSTOMER + ' - ' + h.CUSTOMER_NAME);
-                $('#CASH_IN_NO_EDIT').val(h.CASH_IN);
-                $('#SLIP_NO_EDIT').val(h.SLIP_NO);
-                $('#BON_EDIT').val(h.BON);
-                $('#CASHIN_DATE_EDIT').val(h.CASHIN_DATE);
-                $('#JUMLAH_EDIT').val(formatRupiah(h.AMOUNT));
-
-                // loadFifoPreview(h.CUSTOMER, h.PLANT, toNumber(h.AMOUNT), '#stockActualDetailTableEdit', 'sisa-row-edit');
-
-                if (h.ATTACHMENT) {
-                    $('#attachmentPreviewLink')
-                        .attr('href', '<?= base_url(); ?>' + h.ATTACHMENT)
-                        .show();
+    $(document).on('click', '.btn-void-cash-in', function () {
+        const cashInId = $(this).data('id');
+
+        if (!cashInId) {
+            alert('Cash In ID tidak valid.');
+            return;
+        }
+
+        if (!confirm('Apakah Anda yakin ingin melakukan Void Cash In ini?')) {
+            return;
+        }
+
+        const $button = $(this);
+        $button.prop('disabled', true);
+
+        $.ajax({
+            url: "<?= base_url('cashin/void/'); ?>" + cashInId,
+            type: 'POST',
+            dataType: 'json',
+            success: function (response) {
+                if (response.ok) {
+                    alert(response.message || 'Cash In berhasil di-VOID.');
+                    window.location.reload();
                 } else {
-                    $('#attachmentPreviewLink').hide();
+                    alert(response.message || 'Gagal melakukan Void Cash In.');
+                    $button.prop('disabled', false);
+                }
+            },
+            error: function (xhr) {
+                let message = 'Terjadi kesalahan saat melakukan Void Cash In.';
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
                 }
 
-                $('input[name="PEMBAYARAN"][value="'+h.PEMBAYARAN+'"]').prop('checked', true);
-
-                initRekeningSelect2('#NO_REK_EDIT', '#CashInEdit');
-                let opt = new Option(h.REK_NAME, h.NO_REK, true, true);
-                $('#NO_REK_EDIT').append(opt).trigger('change');
-
-                $('#CashInEdit').modal('show');
-            }, 'json');
-        });
-
-        $('#fCashInEdit').submit(function(e){
-            e.preventDefault();
-
-            let btn = $(this).find('button[type=submit]');
-            btn.prop('disabled', true).text('Menyimpan...');
-
-            let formData = new FormData(this);
-
-            if ($('#stockActualDetailTableEdit input[name*="[AMOUNT_OFFSET]"]').filter(function(){ 
-                return toNumber(this.value) > 0; 
-            }).length === 0) {
-                alert('Tidak ada invoice yang teralokasi');
-                return;
+                alert(message);
+                $button.prop('disabled', false);
             }
-
-            $.ajax({
-                url: '<?= base_url("cash-in/update"); ?>',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(resp){
-                    alert(resp.message);
-                    if(resp.status){
-                        $('#CashInEdit').modal('hide');
-                        loadPage(state.page);
-                    }
-                    btn.prop('disabled', false).text('Update');
-                },
-                error: function(){
-                    alert('Terjadi kesalahan server');
-                    btn.prop('disabled', false).text('Simpan');
-                }
-            });
         });
-
-        // Detail modal
-        $(document).on('click', '.detailBtn', function(){
-            var id = $(this).data('id');
-            $('#stockActualDetailBody').html('Loading...');
-            $.get('<?= base_url("stock-actual/detail"); ?>',{id: id}, function(resp){
-                $('#stockActualDetailBody').html(resp);
-            });
-            $('#stockActualDetail').modal('show');
-        });
-
-        // Delete
-        $(document).on(
-            'click',
-            '.btnDelete',
-            function(){
-
-                if(
-                    !confirm(
-                        'Hapus cash in ini?'
-                    )
-                ){
-                    return;
-                }
-
-                let cashin =
-                    $(this).data('cashin');
-
-                let plant =
-                    $(this).data('plant');
-
-                $.post(
-
-                    '<?= base_url("cashin/remove"); ?>',
-
-                    {
-
-                        cashin : cashin,
-
-                        plant  : plant
-
-                    },
-
-                    function(res){
-
-                        if(typeof res === 'string'){
-
-                            res = JSON.parse(res);
-
-                        }
-
-                        alert(res.message);
-
-                        if(res.status){
-
-                            loadPage(state.page);
-
-                        }
-
-                    },
-
-                    'json'
-
-                );
-
-            }
-        );
-
-    }); // end ready
-
-    const CURRENT_USER = "<?= $this->session->userdata('username'); ?>";
+    });
+});
 </script>
-

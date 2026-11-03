@@ -1,1797 +1,1056 @@
 <?php
+
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class CashIn_model extends CI_Model {
 
-    public function __construct(){
-        parent::__construct();
-        date_default_timezone_set('Asia/Jakarta');
-    }
 
-    /* ---------------------------------------------------------
-       LIST / COUNT (for table ajax)
-    --------------------------------------------------------- */
-    public function get_data(
-        $limit,
-        $start,
-        $search = '',
-        $order = 'CASHIN_DATE',
-        $dir = 'ASC',
-        $pembayaran = '',
-        $date_from = '',
-        $date_to = ''
-    )
+class CashIn_model extends CI_Model
+
+{
+
+    private $cash_in_table = 'pav_tr_cash_in';
+
+    private $detail_table  = 'pav_tr_cash_in_detail';
+
+    private $order_table   = 'pav_tr_order';
+
+    private $customer_order_table = 'pav_tr_order_customer';
+
+    private $sequence_table = 'pav_tr_order_sequence';
+
+
+
+    // =====================================================
+
+    // CUSTOMER OPTIONS
+
+    // =====================================================
+
+    public function get_customer_options()
+
     {
-        /*
-        |--------------------------------------------------------------------------
-        | SELECT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->select("
-
-            c.*,
-
-            plant.CODE_NAME AS PLANT_NAME,
-
-            customer.FULL_NAME AS CUSTOMER_NAME,
-
-            COUNT(DISTINCT d.SALES) AS TOTAL_INVOICE,
-
-            (
-                c.AMOUNT
-                -
-                COALESCE(
-                    SUM(d.AMOUNT_OFFSET),
-                    0
-                )
-            ) AS TOTAL_DEPOSIT,
-
-            NOT EXISTS (
-
-                SELECT 1
-
-                FROM abc_mst_cash_in_detail d2
-
-                INNER JOIN abc_mst_cash_in c2
-                    ON c2.CASH_IN = d2.CASH_IN
-                    AND c2.PLANT = d2.PLANT
-
-                WHERE d2.SALES = d.SALES
-
-                AND d2.CASH_IN != c.CASH_IN
-
-                AND c2.CREATED_AT > c.CREATED_AT
-
-            ) AS IS_LATEST
-
-        ", false);
-
-        /*
-        |--------------------------------------------------------------------------
-        | FROM
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->from('abc_mst_cash_in c');
-
-        /*
-        |--------------------------------------------------------------------------
-        | PLANT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_code plant',
-            "
-                plant.CODE COLLATE utf8mb4_unicode_ci =
-                c.PLANT COLLATE utf8mb4_unicode_ci
-                AND plant.HEAD_CODE = 'PLANT'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | CUSTOMER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_customer customer',
-            "
-                customer.CUST COLLATE utf8mb4_unicode_ci =
-                c.CUSTOMER COLLATE utf8mb4_unicode_ci
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_cash_in_detail d',
-            "
-                d.CASH_IN = c.CASH_IN
-                AND d.PLANT = c.PLANT
-                AND d.DELETED IS NULL
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            'c.DELETED IS NULL',
-            null,
-            false
-        );
-
-        if(!empty($pembayaran)){
-
-            $this->db->where(
-                'c.PEMBAYARAN',
-                $pembayaran
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER DATE
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($date_from)){
-
-            $this->db->where(
-                'DATE(c.CASHIN_DATE) >=',
-                $date_from
-            );
-
-        }
-
-        if(!empty($date_to)){
-
-            $this->db->where(
-                'DATE(c.CASHIN_DATE) <=',
-                $date_to
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($search)){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                'c.CASH_IN',
-                $search
-            );
-
-            $this->db->or_like(
-                'customer.FULL_NAME',
-                $search
-            );
-
-            $this->db->or_like(
-                'c.SLIP_NO',
-                $search
-            );
-
-            $this->db->group_end();
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GROUP
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->group_by('c.CASH_IN');
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->order_by(
-            'c.' . $order,
-            $dir
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | LIMIT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->limit(
-            $limit,
-            $start
-        );
 
         return $this->db
-            ->get()
-            ->result_array();
+
+            ->select('CUST, FULL_NAME')
+
+            ->from('pav_cd_customer')
+
+            ->where('CUST_KIND', 'CUSTOMER')
+
+            ->where('STATUS', 'ACTIVE')
+
+            ->order_by('FULL_NAME', 'ASC')
+
+            ->get()->result_array();
+
     }
 
-    public function count_data(
-        $search = '',
-        $pembayaran = '',
-        $date_from = '',
-        $date_to = ''
-    )
+
+
+    // =====================================================
+
+    // ELIGIBLE CUSTOMER ORDERS - NO PLANT FILTER
+
+    // =====================================================
+
+    public function get_customer_orders($customer, $lock = FALSE)
+
     {
-        $this->db->from(
-            'abc_mst_cash_in c'
-        );
 
-        $this->db->join(
-            'abc_cd_customer customer',
-            "
-                customer.CUST COLLATE utf8mb4_unicode_ci =
-                c.CUSTOMER COLLATE utf8mb4_unicode_ci
-            ",
-            'left',
-            false
-        );
+        $sql = "
 
-        $this->db->where(
-            'c.DELETED IS NULL',
-            null,
-            false
-        );
+            SELECT
 
-        if(!empty($pembayaran)){
+                oc.ORDER_CUSTOMER_ID,
 
-            $this->db->where(
-                'c.PEMBAYARAN',
-                $pembayaran
-            );
+                oc.ORDER_ID,
 
-        }
+                oc.ORDER_CUSTOMER_NO,
 
-        if(!empty($date_from)){
+                oc.BASIS,
 
-            $this->db->where(
-                'DATE(c.CASHIN_DATE) >=',
-                $date_from
-            );
+                oc.EKOR,
 
-        }
+                oc.KG,
 
-        if(!empty($date_to)){
+                oc.AVG_BW,
 
-            $this->db->where(
-                'DATE(c.CASHIN_DATE) <=',
-                $date_to
-            );
+                oc.UNIT_PRICE,
 
-        }
+                oc.TOTAL,
 
-        if(!empty($search)){
+                oc.PAID,
 
-            $this->db->group_start();
+                oc.REMAIN,
 
-            $this->db->like(
-                'c.CASH_IN',
-                $search
-            );
+                oc.PAYMENT_STATUS,
 
-            $this->db->or_like(
-                'customer.FULL_NAME',
-                $search
-            );
+                oc.APPROVAL_STATUS,
 
-            $this->db->or_like(
-                'c.SLIP_NO',
-                $search
-            );
+                COALESCE(cn.CN_TOTAL_AMOUNT, 0) AS CN_TOTAL_AMOUNT,
 
-            $this->db->group_end();
+                o.ORDER_NO,
 
-        }
+                o.ORDER_DATE,
 
-        return $this->db
-            ->count_all_results();
+                o.CUST
+
+            FROM {$this->customer_order_table} oc
+
+            INNER JOIN {$this->order_table} o ON o.ORDER_ID = oc.ORDER_ID
+
+            LEFT JOIN (
+
+                SELECT
+
+                    ORDER_CUSTOMER_ID,
+
+                    SUM(CN_CUSTOMER_TOTAL) AS CN_TOTAL_AMOUNT
+
+                FROM pav_tr_order_credit_note
+
+                WHERE APPROVAL_STATUS = 'APPROVED'
+
+                GROUP BY ORDER_CUSTOMER_ID
+
+            ) cn ON cn.ORDER_CUSTOMER_ID = oc.ORDER_CUSTOMER_ID
+
+            WHERE o.CUST = ?
+
+              AND o.STATUS = 'OPEN'
+
+              AND oc.PAYMENT_STATUS IN ('OPEN', 'PARTIAL')
+
+              AND oc.APPROVAL_STATUS IN ('NOT_REQUIRED', 'APPROVED')
+
+              AND oc.REMAIN > 0
+
+            ORDER BY o.ORDER_DATE ASC, oc.ORDER_CUSTOMER_ID ASC
+
+        ";
+
+        if ($lock) $sql .= ' FOR UPDATE';
+
+        return $this->db->query($sql, [$customer])->result_array();
+
     }
 
-    public function generate_cash_in_number($plant)
+
+
+    // =====================================================
+
+    // GENERATE CASH IN NUMBER: CI-YYYYMM-0001
+
+    // =====================================================
+
+    private function generate_cash_in_number($cash_in_date)
+
     {
-        $date = date('Ymd');
 
-        $prefix =
-            $date . 'CI';
+        $period = date('Ym', strtotime($cash_in_date));
 
-        $last = $this->db
+        $sql = "
 
-            ->select('CASH_IN')
+            INSERT INTO {$this->sequence_table} (DOC_TYPE, PERIOD, LAST_NUMBER)
 
-            ->like('CASH_IN', $prefix, 'after')
+            VALUES ('CI', ?, 1)
 
-            ->order_by('CASH_IN', 'DESC')
+            ON DUPLICATE KEY UPDATE LAST_NUMBER = LAST_NUMBER + 1
 
-            ->get('abc_mst_cash_in')
+        ";
 
-            ->row_array();
+        if (!$this->db->query($sql, [$period])) return FALSE;
 
-        $urut = 1;
 
-        if($last){
 
-            $urut =
-                (int) substr(
-                    $last['CASH_IN'],
-                    -4
-                ) + 1;
-        }
+        $row = $this->db->where('DOC_TYPE', 'CI')
 
-        return
-            $prefix .
-            str_pad(
-                $urut,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
+            ->where('PERIOD', $period)
+
+            ->get($this->sequence_table)->row_array();
+
+        if (!$row) return FALSE;
+
+
+
+        return 'CI-' . $period . '-' . str_pad($row['LAST_NUMBER'], 4, '0', STR_PAD_LEFT);
+
     }
 
-    public function generate_slip_number($plant)
+
+
+    // =====================================================
+
+    // CASH IN LIST
+
+    // =====================================================
+
+    public function get_cash_in_list($filters = [])
+
     {
-        $date = date('Ymd');
 
-        $prefix =
-            $date . 'CI';
-
-        $last = $this->db
-
-            ->select('SLIP_NO')
-
-            ->like('SLIP_NO', $prefix, 'after')
-
-            ->order_by('SLIP_NO', 'DESC')
-
-            ->get('abc_mst_cash_in')
-
-            ->row_array();
-
-        $urut = 1;
-
-        if($last){
-
-            $urut =
-                (int) substr(
-                    $last['SLIP_NO'],
-                    -4
-                ) + 1;
-        }
-
-        return
-            $prefix .
-            str_pad(
-                $urut,
-                4,
-                '0',
-                STR_PAD_LEFT
-            );
-    }
-
-    public function get_sales_by_number(
-        $sales,
-        $plant
-    ){
-        return $this->db
-
-            ->where('SALES', $sales)
-
-            ->where('PLANT', $plant)
-
-            ->where('DELETED IS NULL', null, false)
-
-            ->get('abc_mst_sales')
-
-            ->row_array();
-    }
-
-    public function get_sales_picker(
-        $plant,
-        $customer = '',
-        $search = ''
-    )
-    {
-        /*
-        |--------------------------------------------------------------------------
-        | SELECT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->select("
-
-            s.SALES,
-
-            s.PLANT,
-
-            s.CUSTOMER,
-
-            customer.FULL_NAME AS CUSTOMER_NAME,
-
-            s.SALES_DATE,
-
-            s.AMOUNT,
-
-            COALESCE(
-                SUM(d.AMOUNT_OFFSET),
-                0
-            ) AS TOTAL_PAID,
-
-            (
-                s.AMOUNT
-                -
-                COALESCE(
-                    SUM(d.AMOUNT_OFFSET),
-                    0
-                )
-            ) AS OUTSTANDING
-
-        ", false);
-
-        /*
-        |--------------------------------------------------------------------------
-        | FROM
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->from('abc_mst_sales s');
-
-        /*
-        |--------------------------------------------------------------------------
-        | CUSTOMER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_customer customer',
-            "
-                customer.CUST COLLATE utf8mb4_unicode_ci =
-                s.CUSTOMER COLLATE utf8mb4_unicode_ci
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | CASH IN DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_cash_in_detail d',
-            '
-                d.SALES = s.SALES
-                AND d.PLANT = s.PLANT
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER PLANT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            's.PLANT',
-            $plant
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | TEMPO ONLY
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            's.JENIS_PAY',
-            'TEMPO'
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | NOT DELETED
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            's.DELETED IS NULL',
-            null,
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | CUSTOMER FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($customer)){
-
-            $this->db->where(
-                's.CUSTOMER',
-                $customer
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($search)){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                's.SALES',
-                $search
-            );
-
-            $this->db->or_like(
-                'customer.FULL_NAME',
-                $search
-            );
-
-            $this->db->group_end();
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GROUP
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->group_by('s.SALES');
-
-        /*
-        |--------------------------------------------------------------------------
-        | HAVING OUTSTANDING
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->having(
-            'OUTSTANDING >',
-            0
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FIFO
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->order_by(
-            's.SALES_DATE',
-            'ASC'
-        );
-
-        return $this->db
-            ->get()
-            ->result_array();
-    }
-
-    public function insert_header($data)
-    {
-        return $this->db
-            ->insert(
-                'abc_mst_cash_in',
-                $data
-            );
-    }
-
-    public function insert_detail($data)
-    {
-        return $this->db
-            ->insert(
-                'abc_mst_cash_in_detail',
-                $data
-            );
-    }
-
-    public function update_header_by_key(
-        $cashIn,
-        $plant,
-        $data
-    ){
-        return $this->db
-
-            ->where('CASH_IN', $cashIn)
-
-            ->where('PLANT', $plant)
-
-            ->update(
-                'abc_mst_cash_in',
-                $data
-            );
-    }
-
-    public function reset_customer_invoice_remain(
-    $customer,
-    $plant
-    ){
         $this->db
-            ->set('REMAIN', 'AMOUNT - IFNULL(DP_AMOUNT,0)', false)
 
-            ->set('STATUS', '
+            ->select("ci.*,
+
+                c.FULL_NAME AS CUSTOMER_NAME,
+
+                GROUP_CONCAT(DISTINCT oc.ORDER_CUSTOMER_NO ORDER BY oc.ORDER_CUSTOMER_NO SEPARATOR ', ') AS ORDER_LIST,
+
+                CASE WHEN EXISTS (
+
+                    SELECT 1
+
+                    FROM pav_tr_cash_in_detail cd_current
+
+                    INNER JOIN pav_tr_cash_in_detail cd_later
+
+                        ON cd_later.ORDER_CUSTOMER_ID = cd_current.ORDER_CUSTOMER_ID
+
+                    INNER JOIN pav_tr_cash_in ci_later
+
+                        ON ci_later.CASH_IN_ID = cd_later.CASH_IN_ID
+
+                    WHERE cd_current.CASH_IN_ID = ci.CASH_IN_ID
+
+                      AND ci_later.CASH_IN_ID > ci.CASH_IN_ID
+
+                      AND ci_later.STATUS = 'POSTED'
+
+                ) THEN 1 ELSE 0 END AS HAS_LATER_CASH_IN", FALSE)
+
+            ->from($this->cash_in_table . ' ci')
+
+            ->join('pav_cd_customer c', 'c.CUST = ci.CUSTOMER', 'left')
+
+            ->join($this->detail_table . ' cid', 'cid.CASH_IN_ID = ci.CASH_IN_ID', 'left')
+
+            ->join($this->customer_order_table . ' oc', 'oc.ORDER_CUSTOMER_ID = cid.ORDER_CUSTOMER_ID', 'left');
+
+
+
+        if (!empty($filters['date_from'])) $this->db->where('ci.CASH_IN_DATE >=', $filters['date_from']);
+
+        if (!empty($filters['date_to'])) $this->db->where('ci.CASH_IN_DATE <=', $filters['date_to']);
+
+        if (!empty($filters['customer'])) $this->db->where('ci.CUSTOMER', $filters['customer']);
+
+        if (!empty($filters['method'])) $this->db->where('ci.CASH_IN_METHOD', $filters['method']);
+
+        if (!empty($filters['status'])) $this->db->where('ci.STATUS', $filters['status']);
+
+        if (!empty($filters['search'])) {
+
+            $search = trim($filters['search']);
+
+            $this->db->group_start()
+
+                ->like('ci.CASH_IN_NO', $search)
+
+                ->or_like('ci.SLIP_NO', $search)
+
+                ->or_like('ci.CUSTOMER', $search)
+
+                ->or_like('c.FULL_NAME', $search)
+
+                ->or_like('oc.ORDER_CUSTOMER_NO', $search)
+
+                ->group_end();
+
+        }
+
+
+
+        return $this->db->group_by('ci.CASH_IN_ID')
+
+            ->order_by('ci.CASH_IN_DATE', 'DESC')
+
+            ->order_by('ci.CASH_IN_ID', 'DESC')
+
+            ->get()->result_array();
+
+    }
+
+
+
+    // =====================================================
+
+    // CASH IN DETAIL
+
+    // =====================================================
+
+    public function get_cash_in_detail($cash_in_id)
+
+    {
+
+        $header = $this->db
+
+            ->select('ci.*, c.FULL_NAME AS CUSTOMER_NAME')
+
+            ->from($this->cash_in_table . ' ci')
+
+            ->join('pav_cd_customer c', 'c.CUST = ci.CUSTOMER', 'left')
+
+            ->where('ci.CASH_IN_ID', (int) $cash_in_id)
+
+            ->get()->row_array();
+
+
+
+        if (!$header) {
+
+            return FALSE;
+
+        }
+
+
+
+        $header['details'] = $this->db
+
+            ->select("
+
+                cid.*,
+
+                oc.ORDER_CUSTOMER_NO,
+
+                oc.ORDER_ID,
+
+                oc.TOTAL AS ORDER_TOTAL,
+
+                oc.PAID AS CURRENT_PAID,
+
+                oc.REMAIN AS CURRENT_REMAIN,
+
+                oc.PAYMENT_STATUS,
+
+                oc.APPROVAL_STATUS,
+
+                o.ORDER_NO,
+
+                o.ORDER_DATE,
+
+                COALESCE(cn.CN_TOTAL_AMOUNT, 0) AS CN_TOTAL_AMOUNT
+
+            ", FALSE)
+
+            ->from($this->detail_table . ' cid')
+
+            ->join(
+
+                $this->customer_order_table . ' oc',
+
+                'oc.ORDER_CUSTOMER_ID = cid.ORDER_CUSTOMER_ID'
+
+            )
+
+            ->join(
+
+                $this->order_table . ' o',
+
+                'o.ORDER_ID = oc.ORDER_ID'
+
+            )
+
+            ->join(
+
+                "(
+
+                    SELECT
+
+                        ORDER_CUSTOMER_ID,
+
+                        SUM(CN_CUSTOMER_TOTAL) AS CN_TOTAL_AMOUNT
+
+                    FROM pav_tr_order_credit_note
+
+                    WHERE APPROVAL_STATUS = 'APPROVED'
+
+                    GROUP BY ORDER_CUSTOMER_ID
+
+                ) cn",
+
+                'cn.ORDER_CUSTOMER_ID = oc.ORDER_CUSTOMER_ID',
+
+                'left',
+
+                FALSE
+
+            )
+
+            ->where('cid.CASH_IN_ID', (int) $cash_in_id)
+
+            ->order_by('o.ORDER_DATE', 'ASC')
+
+            ->order_by('oc.ORDER_CUSTOMER_ID', 'ASC')
+
+            ->get()->result_array();
+
+
+
+        return $header;
+
+    }
+
+
+
+    // =====================================================
+
+    // LATER POSTED CASH IN CHECK
+
+    // =====================================================
+
+    public function has_later_posted_cash_in($cash_in_id)
+
+    {
+
+        $sql = "
+
+            SELECT COUNT(*) AS TOTAL
+
+            FROM {$this->detail_table} cd_current
+
+            INNER JOIN {$this->detail_table} cd_later
+
+                ON cd_later.ORDER_CUSTOMER_ID = cd_current.ORDER_CUSTOMER_ID
+
+            INNER JOIN {$this->cash_in_table} ci_later
+
+                ON ci_later.CASH_IN_ID = cd_later.CASH_IN_ID
+
+            WHERE cd_current.CASH_IN_ID = ?
+
+              AND ci_later.CASH_IN_ID > ?
+
+              AND ci_later.STATUS = 'POSTED'
+
+        ";
+
+        $row = $this->db->query($sql, [(int) $cash_in_id, (int) $cash_in_id])->row_array();
+
+        return $row && (int) $row['TOTAL'] > 0;
+
+    }
+
+
+
+    // =====================================================
+
+    // BUILD / VALIDATE ALLOCATIONS
+
+    // =====================================================
+
+    private function build_allocations($allocations, $orders, $total_cash_in)
+
+    {
+
+        if (!is_array($allocations) || empty($allocations)) {
+
+            return ['ok' => FALSE, 'message' => 'Allocation Customer Order wajib diisi.'];
+
+        }
+
+
+
+        $order_map = [];
+
+        foreach ($orders as $order) $order_map[(int) $order['ORDER_CUSTOMER_ID']] = $order;
+
+
+
+        $result = [];
+
+        $seen = [];
+
+        $sum = 0;
+
+        foreach ($allocations as $allocation) {
+
+            $order_id = isset($allocation['ORDER_CUSTOMER_ID']) ? (int) $allocation['ORDER_CUSTOMER_ID'] : 0;
+
+            $amount = isset($allocation['PAID_AMOUNT']) ? (float) $allocation['PAID_AMOUNT'] : 0;
+
+            if ($order_id <= 0 || isset($seen[$order_id])) {
+
+                return ['ok' => FALSE, 'message' => 'Customer Order tidak valid atau terduplikasi.'];
+
+            }
+
+            if (!isset($order_map[$order_id])) {
+
+                return ['ok' => FALSE, 'message' => 'Customer Order tidak eligible untuk Cash In.'];
+
+            }
+
+            if (!is_finite($amount) || $amount <= 0) {
+
+                return ['ok' => FALSE, 'message' => 'Nilai allocation harus lebih besar dari 0.'];
+
+            }
+
+            $remain = (float) $order_map[$order_id]['REMAIN'];
+
+            if ($amount > $remain + 0.00001) {
+
+                return ['ok' => FALSE, 'message' => 'Allocation melebihi sisa tagihan Customer Order ' . $order_map[$order_id]['ORDER_CUSTOMER_NO'] . '.'];
+
+            }
+
+            $seen[$order_id] = TRUE;
+
+            $result[] = ['ORDER_CUSTOMER_ID' => $order_id, 'PAID_AMOUNT' => round($amount, 2)];
+
+            $sum += $amount;
+
+        }
+
+
+
+        if (abs($sum - (float) $total_cash_in) > 0.01) {
+
+            return ['ok' => FALSE, 'message' => 'Total allocation harus sama dengan Total Cash In.'];
+
+        }
+
+        return ['ok' => TRUE, 'data' => $result];
+
+    }
+
+
+
+    private function update_customer_order_balance($order_customer_id, $amount, $add_paid)
+
+    {
+
+        $amount = round((float) $amount, 2);
+
+        if ($add_paid) {
+
+            $sql = "UPDATE {$this->customer_order_table}
+
+                    SET PAID = PAID + ?, REMAIN = REMAIN - ?,
+
+                        PAYMENT_STATUS = CASE
+
+                            WHEN ROUND(REMAIN - ?, 2) <= 0 THEN 'PAID'
+
+                            WHEN ROUND(PAID + ?, 2) > 0 THEN 'PARTIAL'
+
+                            ELSE 'OPEN' END,
+
+                        UPD_DATE = NOW()
+
+                    WHERE ORDER_CUSTOMER_ID = ? AND REMAIN >= ?";
+
+            return $this->db->query($sql, [$amount, $amount, $amount, $amount, $order_customer_id, $amount]);
+
+        }
+
+
+
+        $sql = "UPDATE {$this->customer_order_table}
+
+                SET PAID = GREATEST(PAID - ?, 0), REMAIN = REMAIN + ?,
+
+                    PAYMENT_STATUS = CASE
+
+                        WHEN ROUND(PAID - ?, 2) <= 0 THEN 'OPEN'
+
+                        WHEN ROUND(REMAIN + ?, 2) > 0 THEN 'PARTIAL'
+
+                        ELSE 'PAID' END,
+
+                    UPD_DATE = NOW()
+
+                WHERE ORDER_CUSTOMER_ID = ?";
+
+        return $this->db->query($sql, [$amount, $amount, $amount, $amount, $order_customer_id]);
+
+    }
+
+
+
+    // =====================================================
+
+    // SAVE CASH IN
+
+    // =====================================================
+
+    public function save_cash_in($data, $allocations, $user_code)
+
+    {
+
+        $date = isset($data['CASH_IN_DATE']) ? trim($data['CASH_IN_DATE']) : '';
+
+        $customer = isset($data['CUSTOMER']) ? trim($data['CUSTOMER']) : '';
+
+        $method = isset($data['CASH_IN_METHOD']) ? $data['CASH_IN_METHOD'] : '';
+
+        $type = isset($data['CASH_IN_TYPE']) ? $data['CASH_IN_TYPE'] : '';
+
+        $total = isset($data['TOTAL_CASH_IN']) ? (float) $data['TOTAL_CASH_IN'] : 0;
+
+
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !checkdate((int) substr($date, 5, 2), (int) substr($date, 8, 2), (int) substr($date, 0, 4)))
+
+            return ['ok' => FALSE, 'message' => 'Tanggal Cash In tidak valid.'];
+
+        if ($customer === '') return ['ok' => FALSE, 'message' => 'Customer wajib dipilih.'];
+
+        if (!in_array($method, ['CASH', 'TRANSFER'], TRUE)) return ['ok' => FALSE, 'message' => 'Cash In Method tidak valid.'];
+
+        if (!in_array($type, ['FIFO', 'MANUAL'], TRUE)) return ['ok' => FALSE, 'message' => 'Cash In Type tidak valid.'];
+
+        if (!is_finite($total) || $total <= 0) return ['ok' => FALSE, 'message' => 'Total Cash In harus lebih besar dari 0.'];
+
+
+
+        $this->db->trans_begin();
+
+        try {
+
+            $customer_row = $this->db->where('CUST', $customer)->where('CUST_KIND', 'CUSTOMER')->where('STATUS', 'ACTIVE')->get('pav_cd_customer')->row_array();
+
+            if (!$customer_row) throw new Exception('Customer tidak ditemukan atau tidak aktif.');
+
+
+
+            $orders = $this->get_customer_orders($customer, TRUE);
+
+            $built = $this->build_allocations($allocations, $orders, $total);
+
+            if (!$built['ok']) throw new Exception($built['message']);
+
+
+
+            $cash_in_no = $this->generate_cash_in_number($date);
+
+            if (!$cash_in_no) throw new Exception('Gagal membuat nomor Cash In.');
+
+
+
+            $header = [
+
+                'CASH_IN_NO' => $cash_in_no,
+
+                'CASH_IN_DATE' => $date,
+
+                'CUSTOMER' => $customer,
+
+                'CASH_IN_METHOD' => $method,
+
+                'CASH_IN_TYPE' => $type,
+
+                'SLIP_NO' => isset($data['SLIP_NO']) ? trim($data['SLIP_NO']) : NULL,
+
+                'TOTAL_CASH_IN' => round($total, 2),
+
+                'REMARK' => isset($data['REMARK']) ? trim($data['REMARK']) : NULL,
+
+                'STATUS' => 'POSTED',
+
+                'REG_EMP' => $user_code,
+
+                'REG_DATE' => date('Y-m-d H:i:s')
+
+            ];
+
+            if (!$this->db->insert($this->cash_in_table, $header)) throw new Exception('Gagal menyimpan Cash In.');
+
+            $cash_in_id = $this->db->insert_id();
+
+
+
+            foreach ($built['data'] as $allocation) {
+
+                $detail = [
+
+                    'CASH_IN_ID' => $cash_in_id,
+
+                    'ORDER_CUSTOMER_ID' => $allocation['ORDER_CUSTOMER_ID'],
+
+                    'PAID_AMOUNT' => $allocation['PAID_AMOUNT'],
+
+                    'REG_EMP' => $user_code,
+
+                    'REG_DATE' => date('Y-m-d H:i:s')
+
+                ];
+
+                if (!$this->db->insert($this->detail_table, $detail)) throw new Exception('Gagal menyimpan detail Cash In.');
+
+                if (!$this->update_customer_order_balance($allocation['ORDER_CUSTOMER_ID'], $allocation['PAID_AMOUNT'], TRUE))
+
+                    throw new Exception('Gagal memperbarui saldo Customer Order.');
+
+                if ($this->db->affected_rows() !== 1) throw new Exception('Saldo Customer Order berubah. Silakan refresh dan coba kembali.');
+
+            }
+
+
+
+            if ($this->db->trans_status() === FALSE) throw new Exception('Transaksi database gagal.');
+
+            $this->db->trans_commit();
+
+            return ['ok' => TRUE, 'message' => 'Cash In berhasil disimpan.', 'cash_in_id' => $cash_in_id, 'cash_in_no' => $cash_in_no];
+
+        } catch (Exception $e) {
+
+            $this->db->trans_rollback();
+
+            return ['ok' => FALSE, 'message' => $e->getMessage()];
+
+        }
+
+    }
+
+
+
+    // =====================================================
+
+    // EDIT ORDER OPTIONS
+
+    // Includes this Cash In's own allocations after virtual reversal.
+
+    // =====================================================
+
+    public function get_edit_customer_orders($cash_in_id)
+
+    {
+
+        $sql = "
+
+            SELECT
+
+                oc.ORDER_CUSTOMER_ID, oc.ORDER_ID, oc.ORDER_CUSTOMER_NO,
+
+                oc.BASIS, oc.EKOR, oc.KG, oc.AVG_BW, oc.UNIT_PRICE, oc.TOTAL,
+
+                (oc.PAID - COALESCE(own.OWN_PAID, 0)) AS PAID,
+
+                (oc.REMAIN + COALESCE(own.OWN_PAID, 0)) AS REMAIN,
+
                 CASE
-                    WHEN (AMOUNT - IFNULL(DP_AMOUNT,0)) <= 0
-                        THEN "PAID"
-                    ELSE "OPEN"
-                END
-            ', false)
 
-            ->where('CUSTOMER', $customer)
+                    WHEN ROUND(oc.PAID - COALESCE(own.OWN_PAID, 0), 2) <= 0 THEN 'OPEN'
 
-            ->where('PLANT', $plant)
+                    WHEN ROUND(oc.REMAIN + COALESCE(own.OWN_PAID, 0), 2) > 0 THEN 'PARTIAL'
 
-            ->where('JENIS_PAY', 'TEMPO')
+                    ELSE 'PAID'
 
-            ->where('DELETED IS NULL', null, false)
+                END AS PAYMENT_STATUS,
 
-            ->update('abc_mst_sales');
+                oc.APPROVAL_STATUS, o.ORDER_NO, o.ORDER_DATE, o.CUST,
+
+                COALESCE((
+
+                    SELECT SUM(cn.CN_CUSTOMER_TOTAL)
+
+                    FROM pav_tr_order_credit_note cn
+
+                    WHERE cn.ORDER_CUSTOMER_ID = oc.ORDER_CUSTOMER_ID
+
+                      AND cn.APPROVAL_STATUS = 'APPROVED'
+
+                ), 0) AS CN_TOTAL_AMOUNT
+
+            FROM {$this->customer_order_table} oc
+
+            INNER JOIN {$this->order_table} o ON o.ORDER_ID = oc.ORDER_ID
+
+            INNER JOIN {$this->cash_in_table} ci ON ci.CASH_IN_ID = ? AND ci.CUSTOMER = o.CUST
+
+            LEFT JOIN (
+
+                SELECT ORDER_CUSTOMER_ID, SUM(PAID_AMOUNT) AS OWN_PAID
+
+                FROM {$this->detail_table}
+
+                WHERE CASH_IN_ID = ?
+
+                GROUP BY ORDER_CUSTOMER_ID
+
+            ) own ON own.ORDER_CUSTOMER_ID = oc.ORDER_CUSTOMER_ID
+
+            WHERE o.STATUS = 'OPEN'
+
+              AND oc.APPROVAL_STATUS IN ('NOT_REQUIRED', 'APPROVED')
+
+              AND (
+                  oc.PAYMENT_STATUS IN ('OPEN', 'PARTIAL')
+                  OR own.OWN_PAID IS NOT NULL
+              )
+
+              AND (oc.REMAIN + COALESCE(own.OWN_PAID, 0)) > 0
+
+            ORDER BY o.ORDER_DATE ASC, oc.ORDER_CUSTOMER_ID ASC
+
+            FOR UPDATE
+
+        ";
+
+        return $this->db->query($sql, [(int) $cash_in_id, (int) $cash_in_id])->result_array();
+
     }
 
-    public function delete_customer_cashin_detail(
-    $customer,
-    $plant
-    ){
-        $cashins = $this->db
 
-            ->select('CASH_IN')
 
-            ->from('abc_abc_mst_cash_in')
+    // =====================================================
 
-            ->where('CUSTOMER', $customer)
+    // EDIT CASH IN (customer is immutable)
 
-            ->where('PLANT', $plant)
+    // =====================================================
 
-            ->where('DELETED IS NULL', null, false)
+    public function edit_cash_in($cash_in_id, $data, $allocations, $user_code)
 
-            ->get()
+    {
 
-            ->result_array();
+        $cash_in_id = (int) $cash_in_id;
 
-        if(empty($cashins)){
-            return;
-        }
+        $this->db->trans_begin();
 
-        $cashinNos =
-            array_column($cashins, 'CASH_IN');
+        try {
 
-        $this->db
+            $header = $this->db->query("SELECT * FROM {$this->cash_in_table} WHERE CASH_IN_ID = ? FOR UPDATE", [$cash_in_id])->row_array();
 
-            ->where_in('CASH_IN', $cashinNos)
+            if (!$header || $header['STATUS'] !== 'POSTED') throw new Exception('Cash In tidak ditemukan atau sudah VOID.');
 
-            ->where('PLANT', $plant)
+            if ($this->has_later_posted_cash_in($cash_in_id)) throw new Exception('Cash In tidak dapat diedit karena terdapat Cash In POSTED yang lebih baru pada Customer Order terkait.');
 
-            ->delete('abc_abc_mst_cash_in_detail');
-    }
+            if (isset($data['CUSTOMER']) && trim($data['CUSTOMER']) !== $header['CUSTOMER']) throw new Exception('Customer tidak dapat diubah saat edit Cash In.');
 
-    public function get_customer_cashin_history(
-    $customer,
-    $plant
-    ){
-        return $this->db
 
-            ->from('abc_abc_mst_cash_in')
 
-            ->where('CUSTOMER', $customer)
+            $date = isset($data['CASH_IN_DATE']) ? trim($data['CASH_IN_DATE']) : '';
 
-            ->where('PLANT', $plant)
+            $method = isset($data['CASH_IN_METHOD']) ? $data['CASH_IN_METHOD'] : '';
 
-            ->where('DELETED IS NULL', null, false)
+            $type = isset($data['CASH_IN_TYPE']) ? $data['CASH_IN_TYPE'] : '';
 
-            ->order_by('CASHIN_DATE', 'ASC')
+            $total = isset($data['TOTAL_CASH_IN']) ? (float) $data['TOTAL_CASH_IN'] : 0;
 
-            ->order_by('CASH_IN', 'ASC')
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !checkdate((int) substr($date, 5, 2), (int) substr($date, 8, 2), (int) substr($date, 0, 4))) throw new Exception('Tanggal Cash In tidak valid.');
 
-            ->get()
+            if (!in_array($method, ['CASH', 'TRANSFER'], TRUE)) throw new Exception('Cash In Method tidak valid.');
 
-            ->result_array();
-    }
+            if (!in_array($type, ['FIFO', 'MANUAL'], TRUE)) throw new Exception('Cash In Type tidak valid.');
 
-    public function get_open_invoice_fifo(
-    $customer,
-    $plant
-    ){
-        return $this->db
+            if (!is_finite($total) || $total <= 0) throw new Exception('Total Cash In harus lebih besar dari 0.');
 
-            ->from('abc_mst_sales')
 
-            ->where('CUSTOMER', $customer)
 
-            ->where('PLANT', $plant)
+            $old_details = $this->db->query(
 
-            ->where('JENIS_PAY', 'TEMPO')
+                "SELECT *
 
-            ->where('REMAIN >', 0)
+                FROM {$this->detail_table}
 
-            ->where('DELETED IS NULL', null, false)
+                WHERE CASH_IN_ID = ?
 
-            ->order_by('SALES_DATE', 'ASC')
+                ORDER BY ORDER_CUSTOMER_ID ASC
 
-            ->order_by('SALES', 'ASC')
+                FOR UPDATE",
 
-            ->get()
+                [$cash_in_id]
 
-            ->result_array();
-    }
+            )->result_array();
 
-    public function rebuild_customer_fifo_history(
-        $customer,
-        $plant
-    ){
-        /*
-        |--------------------------------------------------------------------------
-        | RESET REMAIN
-        |--------------------------------------------------------------------------
-        */
 
-        $this->reset_customer_invoice_remain(
-            $customer,
-            $plant
-        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | DELETE DETAIL
-        |--------------------------------------------------------------------------
-        */
+            // 1. Reversal allocation lama
 
-        $this->delete_customer_cashin_detail(
-            $customer,
-            $plant
-        );
+            foreach ($old_details as $detail) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | GET HISTORY
-        |--------------------------------------------------------------------------
-        */
+                if (!$this->update_customer_order_balance(
 
-        $cashins =
-            $this->get_customer_cashin_history(
-                $customer,
-                $plant
+                    $detail['ORDER_CUSTOMER_ID'],
+
+                    $detail['PAID_AMOUNT'],
+
+                    FALSE
+
+                )) {
+
+                    throw new Exception('Gagal melakukan reversal allocation lama.');
+
+                }
+
+            }
+
+
+
+            // 2. Hapus detail lama di dalam transaction
+
+            if (!$this->db
+
+                ->where('CASH_IN_ID', $cash_in_id)
+
+                ->delete($this->detail_table)
+
+            ) {
+
+                throw new Exception('Gagal menghapus allocation lama.');
+
+            }
+
+
+
+            // 3. Ambil saldo setelah reversal.
+
+            // Detail lama sudah dihapus sehingga tidak terjadi virtual reversal kedua.
+
+            $orders = $this->get_edit_customer_orders($cash_in_id);
+
+
+
+            // 4. Validasi allocation baru
+
+            $built = $this->build_allocations(
+
+                $allocations,
+
+                $orders,
+
+                $total
+
             );
 
-        foreach($cashins as $cashin){
 
-            $amount =
-                (float)$cashin['TOTAL'];
 
-            $balance = $amount;
+            if (!$built['ok']) {
 
-            $seqNo = 1;
+                throw new Exception($built['message']);
 
-            /*
-            |--------------------------------------------------------------------------
-            | FIFO INVOICE
-            |--------------------------------------------------------------------------
-            */
-
-            $invoices =
-                $this->get_open_invoice_fifo(
-                    $customer,
-                    $plant
-                );
-
-            foreach($invoices as $inv){
-
-                if($balance <= 0){
-                    break;
-                }
-
-                $remain =
-                    (float)$inv['REMAIN'];
-
-                if($remain <= 0){
-                    continue;
-                }
-
-                $offset =
-                    min(
-                        $balance,
-                        $remain
-                    );
-
-                /*
-                |--------------------------------------------------------------------------
-                | INSERT DETAIL
-                |--------------------------------------------------------------------------
-                */
-
-                $this->db->insert(
-                    'abc_abc_mst_cash_in_detail',
-                    [
-
-                        'PLANT' => $plant,
-
-                        'CASH_IN' =>
-                            $cashin['CASH_IN'],
-
-                        'SEQ_NO' =>
-                            $seqNo,
-
-                        'SALES' =>
-                            $inv['SALES'],
-
-                        'ORG_SLIP_NO' =>
-                            $inv['SLIP_NO'],
-
-                        'AMOUNT_INVOICE' =>
-                            $inv['AMOUNT'],
-
-                        'AMOUNT_OFFSET' =>
-                            $offset,
-
-                        'REMAIN' =>
-                            $remain - $offset,
-
-                        'CREATED_AT' =>
-                            date('Y-m-d H:i:s'),
-
-                        'CREATED_BY' =>
-                            'SYSTEM_REBUILD'
-                    ]
-                );
-
-                /*
-                |--------------------------------------------------------------------------
-                | UPDATE SALES
-                |--------------------------------------------------------------------------
-                */
-
-                $newRemain =
-                    $remain - $offset;
-
-                $status =
-                    $newRemain <= 0
-                        ? 'PAID'
-                        : 'PARTIAL';
-
-                $this->db
-
-                    ->where(
-                        'SALES',
-                        $inv['SALES']
-                    )
-
-                    ->where(
-                        'PLANT',
-                        $plant
-                    )
-
-                    ->update(
-                        'abc_mst_sales',
-                        [
-                            'REMAIN' =>
-                                $newRemain,
-
-                            'STATUS' =>
-                                $status
-                        ]
-                    );
-
-                $balance -= $offset;
-
-                $seqNo++;
             }
-        }
-    }
 
-    public function get_plant_select2()
-    {
-        return $this->db
 
-            ->select('
-                CODE as id,
-                CODE_NAME as text
-            ')
 
-            ->from('abc_cd_code')
+            foreach ($built['data'] as $allocation) {
 
-            ->where('HEAD_CODE', 'PLANT')
+                $detail = [
 
-            ->where('CODE !=', '*')
+                    'CASH_IN_ID' => $cash_in_id,
 
-            ->order_by('CODE', 'ASC')
+                    'ORDER_CUSTOMER_ID' => $allocation['ORDER_CUSTOMER_ID'],
 
-            ->get()
+                    'PAID_AMOUNT' => $allocation['PAID_AMOUNT'],
 
-            ->result_array();
-    }
+                    'REG_EMP' => $user_code,
 
-    public function user_has_plant($username, $plant)
-    {
-        if (!$plant) return false;
+                    'REG_DATE' => date('Y-m-d H:i:s')
 
-        $plant  = (string)trim($plant);
-        $plants = array_map(
-            fn($p) => (string)trim($p),
-            $this->get_user_plants($username)
-        );
+                ];
 
-        return in_array($plant, $plants, true);
-    }
+                if (!$this->db->insert($this->detail_table, $detail)) throw new Exception('Gagal menyimpan allocation baru.');
 
-    public function get_header($plant, $cashIn)
-    {
-        return $this->db
-            ->from('abc_mst_cash_in')
-            ->where([
-                'PLANT'   => $plant,
-                'CASH_IN' => $cashIn
-            ])
-            ->get()
-            ->row_array();
-    }
+                if (!$this->update_customer_order_balance($allocation['ORDER_CUSTOMER_ID'], $allocation['PAID_AMOUNT'], TRUE)) throw new Exception('Gagal memperbarui saldo Customer Order.');
 
-    public function search_customer($q = null, $limit = 20)
-    {
-        $this->db->select('CUST as id, FULL_NAME as name');
-        $this->db->from('abc_cd_customer');
-        $this->db->where('STATUS', 'Y');
+                if ($this->db->affected_rows() !== 1) throw new Exception('Saldo Customer Order berubah. Silakan refresh dan coba kembali.');
 
-        // 🔥 FILTER CUSTOMER
-        $this->db->group_start();
-            $this->db->where('CUST_KIND', 'CUSTOMER');
-            $this->db->or_where('CUST_CLASS', 'CUSTOMER');
-        $this->db->group_end();
+            }
 
-        if ($q) {
-            $this->db->group_start();
-            $this->db->like('CUST', $q);
-            $this->db->or_like('FULL_NAME', $q);
-            $this->db->group_end();
-        }
 
-        $this->db->order_by('CUST', 'ASC');
-        $this->db->limit($limit);
-        $rows = $this->db->get()->result_array();
 
-        $out = [];
-        foreach ($rows as $r) {
-            $out[] = [
-                'id'   => $r['id'],
-                'text' => $r['id'] . ' - ' . $r['name']
+            $update = [
+
+                'CASH_IN_DATE' => $date,
+
+                'CASH_IN_METHOD' => $method,
+
+                'CASH_IN_TYPE' => $type,
+
+                'SLIP_NO' => isset($data['SLIP_NO']) ? trim($data['SLIP_NO']) : NULL,
+
+                'TOTAL_CASH_IN' => round($total, 2),
+
+                'REMARK' => isset($data['REMARK']) ? trim($data['REMARK']) : NULL,
+
+                'UPD_EMP' => $user_code,
+
+                'UPD_DATE' => date('Y-m-d H:i:s')
+
             ];
-        }
-        return $out;
-    }
 
-    public function search_rekening($q = null, $limit = 20)
-    {
-        $this->db->select('CODE as id, CODE_NAME as name');
-        $this->db->from('abc_cd_code');
+            if (!$this->db->where('CASH_IN_ID', $cash_in_id)->update($this->cash_in_table, $update)) throw new Exception('Gagal memperbarui Cash In.');
 
-        // 🔥 FILTER UTAMA
-        $this->db->where('HEAD_CODE', 'AK');
-        $this->db->where('CODE !=', '*');
+            if ($this->db->trans_status() === FALSE) throw new Exception('Transaksi database gagal.');
 
-        // 🔍 SEARCH
-        if ($q) {
-            $this->db->group_start();
-                $this->db->like('CODE', $q);
-                $this->db->or_like('CODE_NAME', $q);
-            $this->db->group_end();
+            $this->db->trans_commit();
+
+            return ['ok' => TRUE, 'message' => 'Cash In berhasil diperbarui.'];
+
+        } catch (Exception $e) {
+
+            $this->db->trans_rollback();
+
+            return ['ok' => FALSE, 'message' => $e->getMessage()];
+
         }
 
-        $this->db->order_by('CODE', 'ASC');
-        $this->db->limit($limit);
-
-        $rows = $this->db->get()->result_array();
-
-        $out = [];
-        foreach ($rows as $r) {
-            $out[] = [
-                'id'   => $r['id'],
-                'text' => $r['name']
-            ];
-        }
-
-        return $out;
     }
 
-    public function get_plant_code_by_id($id)
+
+
+    // =====================================================
+
+    // VOID CASH IN - KEEP DETAIL HISTORY
+
+    // =====================================================
+
+    public function void_cash_in($cash_in_id, $user_code)
+
     {
-        return $this->db
-            ->select('code')
-            ->from('abc_cd_code')
-            ->where([
-                'head_code' => 'AJ',
-                'id'        => $id
-            ])
-            ->get()
-            ->row('code');
-    }
 
-    public function get_plant_code_by_code($code)
-    {
-        return $this->db
-            ->select('code')
-            ->from('abc_cd_code')
-            ->where([
-                'head_code' => 'AJ',
-                'code'      => $code
-            ])
-            ->get()
-            ->row('code');
-    }
+        $cash_in_id = (int) $cash_in_id;
 
-    /* ---------------------------------------------------------
-       AUTO NUMBER GENERATOR
-    --------------------------------------------------------- */
-    public function generate_cash_in_no($plant, $date)
-    {
-        $ymd = date('Ymd', strtotime($date));
-        $prefix = $ymd . 'CI';
-        
-        $this->db->select('CASH_IN');
-        $this->db->from('abc_mst_cash_in');
-        $this->db->where('PLANT', $plant);
-        $this->db->like('CASH_IN', $prefix, 'after');
-        $this->db->order_by('CASH_IN', 'DESC');
-        $this->db->limit(1);
+        $this->db->trans_begin();
 
-        $row = $this->db->get()->row();
+        try {
 
-        if ($row) {
-            $seq = (int)substr($row->CASH_IN, -4) + 1;
-        } else {
-            $seq = 1;
-        }
+            $header = $this->db->query("SELECT * FROM {$this->cash_in_table} WHERE CASH_IN_ID = ? FOR UPDATE", [$cash_in_id])->row_array();
 
-        return $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-    }
+            if (!$header || $header['STATUS'] !== 'POSTED') throw new Exception('Cash In tidak ditemukan atau sudah VOID.');
 
-    public function generate_slip_no($plant)
-    {
-        $today  = date('Ymd');
-        $prefix = $today . 'AG';
+            if ($this->has_later_posted_cash_in($cash_in_id)) throw new Exception('Cash In tidak dapat di-VOID karena terdapat Cash In POSTED yang lebih baru pada Customer Order terkait.');
 
-        $this->db->select('SLIP_NO');
-        $this->db->from('abc_mst_cash_in');
-        $this->db->where('PLANT', $plant);
-        $this->db->like('SLIP_NO', $prefix, 'after');
-        $this->db->order_by('SLIP_NO', 'DESC');
-        $this->db->limit(1);
 
-        $row = $this->db->get()->row();
 
-        $seq = $row ? ((int)substr($row->SLIP_NO, -4) + 1) : 1;
+            $details = $this->db->query("SELECT * FROM {$this->detail_table} WHERE CASH_IN_ID = ? ORDER BY ORDER_CUSTOMER_ID ASC FOR UPDATE", [$cash_in_id])->result_array();
 
-        return $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-    }
+            foreach ($details as $detail) {
 
-    public function get_invoice_remain($sales, $plant)
-    {
-        return $this->db
-            ->select('CUSTOMER as customer, AMOUNT as invoice_amount, REMAIN as remain')
-            ->from('mst_sales')
-            ->where('SALES', $sales)
-            ->where('PLANT', $plant)
-            ->get()
-            ->row_array();
-    }
+                $this->db->query("SELECT ORDER_CUSTOMER_ID FROM {$this->customer_order_table} WHERE ORDER_CUSTOMER_ID = ? FOR UPDATE", [$detail['ORDER_CUSTOMER_ID']]);
 
-    public function insert_customer_deposit($data)
-    {
-        return $this->db->insert('mst_customer_deposit', $data);
-    }
+                if (!$this->update_customer_order_balance($detail['ORDER_CUSTOMER_ID'], $detail['PAID_AMOUNT'], FALSE)) throw new Exception('Gagal mengembalikan saldo Customer Order.');
 
-    public function use_deposit($id, $amount)
-    {
-        $this->db->set('REMAIN', "REMAIN - {$amount}", false)
-                ->where('ID', $id)
-                ->update('mst_customer_deposit');
-    }
+            }
 
-    public function get_available_deposit($customer, $plant)
-    {
-        return $this->db
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('REMAIN >', 0)
-            ->order_by('CREATED_AT', 'ASC') // FIFO deposit
-            ->get('mst_customer_deposit')
-            ->result_array();
-    }
 
-    public function get_total_deposit($customer, $plant)
-    {
-        return $this->db->select_sum('REMAIN')
-            ->from('mst_customer_deposit')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('REMAIN >', 0)
-            ->get()
-            ->row()
-            ->REMAIN ?? 0;
-    }
 
-    public function get_invoice_remain_batch($salesList, $plant)
-    {
-        $this->db->select('SALES, CUSTOMER, AMOUNT, REMAIN');
-        $this->db->from('mst_sales');
-        $this->db->where('PLANT', $plant);
-        $this->db->where_in('SALES', $salesList);
+            $updated = $this->db->where('CASH_IN_ID', $cash_in_id)->where('STATUS', 'POSTED')->update($this->cash_in_table, [
 
-        $rows = $this->db->get()->result_array();
+                'STATUS' => 'VOID', 'UPD_EMP' => $user_code, 'UPD_DATE' => date('Y-m-d H:i:s')
 
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r['SALES']] = $r;
-        }
-        return $out;
-    }
-
-    // public function reduce_invoice_batch($updates)
-    // {
-    //     foreach ($updates as $u) {
-    //         $this->db->set('REMAIN', 'REMAIN - '.$u['amount'], false);
-    //         $this->db->where('SALES', $u['sales']);
-    //         $this->db->where('PLANT', $u['plant']);
-    //         $this->db->update('mst_sales');
-    //     }
-    // }
-
-    public function get_cash_in_details($cashIn, $plant){
-        return $this->db->get_where('abc_mst_cash_in_detail', [
-            'CASH_IN'=>$cashIn,'PLANT'=>$plant,'DELETED'=>null
-        ])->result_array();
-    }
-
-    // public function restore_invoice_offset($sales,$plant,$amount){
-    //     $this->db->set('AMOUNT_PAID',"AMOUNT_PAID-$amount",false)
-    //             ->where(['SALES'=>$sales,'PLANT'=>$plant])
-    //             ->update('mst_sales');
-    // }
-
-    // public function rollback_deposit_usage($cashIn)
-    // {
-    //     $this->db->set('REMAIN','REMAIN+USED_AMOUNT',false)
-    //             ->where('CASH_IN',$cashIn)
-    //             ->update('mst_customer_deposit');
-    // }
-
-    public function delete_cash_in_details($cashIn,$plant){
-        $this->db->where(['CASH_IN'=>$cashIn,'PLANT'=>$plant])
-                ->delete('abc_mst_cash_in_detail');
-    }
-
-    // public function restore_invoice_batch($updates)
-    // {
-    //     foreach ($updates as $u) {
-    //         $this->db->set('REMAIN', 'REMAIN + '.$u['amount'], false);
-    //         $this->db->where('SALES', $u['sales']);
-    //         $this->db->where('PLANT', $u['plant']);
-    //         $this->db->update('mst_sales');
-    //     }
-    // }
-
-    public function restore_deposit_usage_by_cash_in($cashIn)
-    {
-        $this->db->set('REMAIN', 'AMOUNT', false);
-        $this->db->where('CASH_IN', $cashIn);
-        $this->db->update('mst_customer_deposit');
-    }
-
-    public function recalc_invoice($sales, $plant)
-    {
-        $this->db->query("
-            SELECT SALES 
-            FROM mst_sales 
-            WHERE SALES = ? AND PLANT = ? 
-            FOR UPDATE
-        ", [$sales, $plant]);
-
-        $inv = $this->db->select('AMOUNT')
-            ->from('mst_sales')
-            ->where([
-                'SALES' => $sales,
-                'PLANT' => $plant
-            ])
-            ->get()->row_array();
-
-        if (!$inv) return;
-
-        $invoiceAmount = (float)$inv['AMOUNT'];
-
-        // 🔥 Semua pembayaran termasuk DP dibaca dari sini
-        $paid = $this->db->select('IFNULL(SUM(AMOUNT_OFFSET),0) AS TOTAL')
-            ->from('abc_mst_cash_in_detail')
-            ->where([
-                'SALES'   => $sales,
-                'PLANT'   => $plant,
-                'DELETED' => null
-            ])
-            ->get()->row_array();
-
-        $totalPaid = (float)$paid['TOTAL'];
-
-        // ✅ DP TIDAK DIKURANGI LAGI
-        $remain = max($invoiceAmount - $totalPaid, 0);
-
-        if ($remain <= 0) {
-            $status = 'PAID';
-        } elseif ($totalPaid > 0) {
-            $status = 'PARTIAL';
-        } else {
-            $status = 'UNPAID';
-        }
-
-        $this->db->where([
-                'SALES' => $sales,
-                'PLANT' => $plant
-            ])
-            ->update('mst_sales', [
-                'REMAIN'     => $remain,
-                'STATUS'     => $status,
-                'UPDATED_AT' => date('Y-m-d H:i:s')
             ]);
-    }
 
-    public function delete_deposit_by_cash_in($cashIn)
-    {
-        $this->db->where('CASH_IN', $cashIn);
-        $this->db->delete('mst_customer_deposit');
-    }
+            if (!$updated || $this->db->affected_rows() !== 1) throw new Exception('Gagal mengubah status Cash In menjadi VOID.');
 
-    public function delete_deposit_by_cashin($cashIn){
-        $this->db->where('CASH_IN',$cashIn)
-                ->delete('mst_customer_deposit');
-    }
+            if ($this->db->trans_status() === FALSE) throw new Exception('Transaksi database gagal.');
 
-    public function get_fifo_open_invoices($customer, $plant)
-    {
-        return $this->db
-            ->from('mst_sales')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('JENIS_PAY', 'TEMPO') // 🔥 WAJIB TEMPO
-            ->where('REMAIN >', 0)
-            ->group_start()               // 🔥 BELUM LUNAS
-                ->where('STATUS !=', 'PAID')
-                ->or_where('STATUS IS NULL', null, false)
-            ->group_end()
-            ->order_by('SALES_DATE', 'ASC')
-            ->order_by('SALES', 'ASC')
-            ->get()
-            ->result_array();
-    }
+            $this->db->trans_commit();
 
-    public function reduce_invoice_remain($sales, $plant, $amount)
-    {
-        // Hanya lock untuk mencegah race
-        $this->lock_invoice_row($sales, $plant);
+            return ['ok' => TRUE, 'message' => 'Cash In berhasil di-VOID.'];
 
-        // Tidak perlu update remain di sini
-        return true;
-    }
+        } catch (Exception $e) {
 
-    public function restore_invoice_remain($sales, $plant, $amount)
-    {
-        $this->db->set('REMAIN', 'REMAIN + '.$amount, false)
-            ->where('SALES', $sales)
-            ->where('PLANT', $plant)
-            ->update('mst_sales');
-    }
+            $this->db->trans_rollback();
 
-    public function get_next_seq($cashIn, $plant)
-    {
-        $row = $this->db->select_max('SEQ_NO')
-            ->where('CASH_IN',$cashIn)
-            ->where('PLANT',$plant)
-            ->get('abc_mst_cash_in_detail')
-            ->row();
+            return ['ok' => FALSE, 'message' => $e->getMessage()];
 
-        return ($row->SEQ_NO ?? 0) + 1;
-    }
-
-    public function lock_invoice_row($sales, $plant)
-    {
-        return $this->db->query("
-            SELECT SALES
-            FROM mst_sales
-            WHERE SALES = ? AND PLANT = ?
-            FOR UPDATE
-        ", [$sales, $plant])->row();
-    }
-
-    public function simulate_fifo($customer, $plant, $newAmount)
-    {
-        $allocations = [];
-
-        // =============================
-        // 1. Ambil DEPOSIT aktif
-        // =============================
-        $deposit = $this->db->select_sum('REMAIN')
-            ->from('mst_customer_deposit')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('REMAIN >', 0)
-            ->get()
-            ->row()
-            ->REMAIN ?? 0;
-
-        $available = $deposit + $newAmount;
-
-        // =============================
-        // 2. Ambil INVOICE TEMPO FIFO
-        // =============================
-        $invoices = $this->get_fifo_open_invoices($customer, $plant);
-
-        foreach ($invoices as $inv) {
-
-            if ($available <= 0) break;
-
-            $remainInvoice = (float)$inv['REMAIN'];
-            if ($remainInvoice <= 0) continue;
-
-            $offset = min($remainInvoice, $available);
-
-            $allocations[] = [
-                'sales'                 => $inv['SALES'],
-                'sales_date'            => $inv['SALES_DATE'],
-                'invoice_amount'        => (float)$inv['AMOUNT'],
-                'invoice_remain_before' => $remainInvoice,
-                'offset'                => $offset
-            ];
-
-            $available -= $offset;
         }
 
-        return [
-            'allocations'       => $allocations,
-            'deposit_used'      => min($deposit, $deposit + $newAmount),
-            'deposit_remaining' => $available > 0 ? $available : 0
-        ];
     }
 
-    public function get_valid_invoice_for_payment($sales, $customer, $plant)
-    {
-        return $this->db
-            ->select('SALES, AMOUNT, REMAIN, SALES_DATE')
-            ->from('mst_sales')
-            ->where('SALES', $sales)
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('JENIS_PAY', 'TEMPO')
-            ->where('REMAIN >', 0)
-            ->group_start()
-                ->where('STATUS !=', 'PAID')
-                ->or_where('STATUS IS NULL', null, false)
-            ->group_end()
-            ->get()
-            ->row_array();
-    }
-
-    public function get_all_open_tempo_invoices($customer, $plant)
-    {
-        $rows = $this->db
-            ->select('SALES, SALES_DATE, AMOUNT, REMAIN')
-            ->from('mst_sales')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('JENIS_PAY', 'TEMPO')
-            ->where('REMAIN >', 0)
-            ->group_start()
-                ->where('STATUS !=', 'PAID')
-                ->or_where('STATUS IS NULL', null, false)
-            ->group_end()
-            ->order_by('SALES_DATE', 'ASC')
-            ->order_by('SALES', 'ASC')
-            ->get()
-            ->result_array();
-
-        // 🔥 PENTING: ubah decimal string jadi float
-        foreach ($rows as &$r) {
-            $r['AMOUNT'] = (float)$r['AMOUNT'];
-            $r['REMAIN'] = (float)$r['REMAIN'];
-        }
-
-        return $rows;
-    }
-
-    public function deposit_still_used($cashIn)
-    {
-        return $this->db
-            ->where('CASH_IN_REF', $cashIn) // kolom referensi saat deposit dipakai
-            ->count_all_results('mst_customer_deposit_usage') > 0;
-    }
-
-    public function deposit_has_remain($cashIn)
-    {
-        return $this->db
-            ->where('CASH_IN', $cashIn)
-            ->where('REMAIN < AMOUNT', null, false)
-            ->count_all_results('mst_customer_deposit') > 0;
-    }
-
-    public function rebuild_customer_payment_history($customer, $plant)
-    {
-        $this->db->trans_start();
-
-        /* =========================
-        1. RESET SEMUA INVOICE (DP AWARE)
-        REMAIN = TOTAL - DP
-        ========================= */
-        $this->db->set('REMAIN', 'AMOUNT - DP_AMOUNT', false)
-                ->set('STATUS', "'UNPAID'", false)
-                ->where('CUSTOMER', $customer)
-                ->where('PLANT', $plant)
-                ->update('mst_sales');
-
-
-        /* =========================
-        2. HAPUS SEMUA DEPOSIT CUSTOMER
-        ========================= */
-        $this->db->where('CUSTOMER', $customer)
-                ->where('PLANT', $plant)
-                ->delete('mst_customer_deposit');
-
-
-        /* =========================
-        3. HAPUS SEMUA DETAIL OFFSET
-        (berdasarkan header CASH IN milik customer tsb)
-        ========================= */
-        $this->db->where_in('CASH_IN', function($db) use ($customer,$plant){
-            $db->select('CASH_IN')
-            ->from('abc_mst_cash_in')
-            ->where('CUSTOMER',$customer)
-            ->where('PLANT',$plant);
-        }, false)->delete('abc_mst_cash_in_detail');
-
-
-        /* =========================
-        4. AMBIL SEMUA CASH IN URUT TANGGAL (FIFO GLOBAL)
-        ========================= */
-        $cashins = $this->db->from('abc_mst_cash_in')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->order_by('CASHIN_DATE', 'ASC')
-            ->order_by('CASH_IN', 'ASC')
-            ->get()->result_array();
-
-
-        foreach ($cashins as $cash) {
-
-            $cashInNo = $cash['CASH_IN'];
-            $amount   = (float)$cash['AMOUNT'];
-            $seq      = 1;
-
-            /* =========================
-            4A. APPLY KE INVOICE (FIFO)
-            ========================= */
-            $invoices = $this->db->from('mst_sales')
-                ->where('CUSTOMER', $customer)
-                ->where('PLANT', $plant)
-                ->where('REMAIN >', 0)
-                ->order_by('SALES_DATE', 'ASC')
-                ->get()->result_array();
-
-            foreach ($invoices as $inv) {
-
-                if ($amount <= 0) break;
-
-                $remainInvoice = (float)$inv['REMAIN'];
-                if ($remainInvoice <= 0) continue;
-
-                $offset = min($remainInvoice, $amount);
-
-                /* INSERT DETAIL OFFSET */
-                $this->db->insert('abc_mst_cash_in_detail', [
-                    'CASH_IN'        => $cashInNo,
-                    'PLANT'          => $plant,
-                    'SEQ_NO'         => $seq++,
-                    'SALES'          => $inv['SALES'],
-                    'AMOUNT_INVOICE' => $inv['AMOUNT'],
-                    'AMOUNT_OFFSET'  => $offset,
-                    'DATE_OFFSET'    => $cash['CASHIN_DATE'],
-                    'ORG_SLIP_NO'    => 'AUTO',
-                    'SLIP_NO'        => 'AUTO',
-                    'CREATED_AT'     => date('Y-m-d H:i:s')
-                ]);
-
-                /* KURANGI REMAIN INVOICE */
-                $this->db->set('REMAIN', "REMAIN - $offset", false)
-                        ->where('SALES', $inv['SALES'])
-                        ->where('PLANT', $plant)
-                        ->update('mst_sales');
-
-                $amount -= $offset;
-            }
-
-            /* =========================
-            4B. SISA UANG → DEPOSIT
-            ========================= */
-            if ($amount > 0) {
-                $this->db->insert('mst_customer_deposit', [
-                    'CUSTOMER'   => $customer,
-                    'PLANT'      => $plant,
-                    'CASH_IN'    => $cashInNo,
-                    'AMOUNT'     => $amount,
-                    'REMAIN'     => $amount,
-                    'CREATED_AT' => date('Y-m-d H:i:s')
-                ]);
-            }
-        }
-
-
-        /* =========================
-        5. HITUNG ULANG STATUS INVOICE
-        ========================= */
-        $salesList = $this->db->select('SALES, AMOUNT, DP_AMOUNT, REMAIN')
-            ->from('mst_sales')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->get()->result_array();
-
-        foreach ($salesList as $s) {
-
-            $totalTagihan = $s['AMOUNT'] - $s['DP_AMOUNT'];
-            $remain       = (float)$s['REMAIN'];
-
-            if ($remain <= 0) {
-                $status = 'PAID';
-            } elseif ($remain < $totalTagihan) {
-                $status = 'PARTIAL';
-            } else {
-                $status = 'UNPAID';
-            }
-
-            $this->db->where('SALES', $s['SALES'])
-                    ->where('PLANT', $plant)
-                    ->update('mst_sales', ['STATUS' => $status]);
-        }
-
-        $this->db->trans_complete();
-        return $this->db->trans_status();
-    }
-
-    public function is_cash_in_locked($cashInNo, $customer, $plant)
-    {
-        $current = $this->db->select('CASHIN_DATE')
-            ->from('abc_mst_cash_in')
-            ->where('CASH_IN', $cashInNo)
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->get()
-            ->row();
-
-        if (!$current) return true;
-
-        $exists = $this->db->from('abc_mst_cash_in')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('CASHIN_DATE >', $current->CASHIN_DATE)
-            ->count_all_results();
-
-        return $exists > 0;
-    }
-
-    public function get_open_deposits_fifo($customer, $plant)
-    {
-        return $this->db->from('mst_customer_deposit')
-            ->where('CUSTOMER', $customer)
-            ->where('PLANT', $plant)
-            ->where('REMAIN >', 0)
-            ->order_by('CREATED_AT', 'ASC') // FIFO deposit lama dulu
-            ->get()->result_array();
-    }
-
-    public function reduce_deposit($id, $amount)
-    {
-        $this->db->set('REMAIN', "REMAIN - {$amount}", false)
-            ->where('ID', $id)
-            ->update('mst_customer_deposit');
-    }
-
-    public function sales_has_payment($sales, $plant)
-    {
-        return $this->db
-            ->where('SALES', $sales)
-            ->where('PLANT', $plant)
-            ->where('ORG_SLIP_NO !=', 'AUTO_DP') // abaikan DP otomatis
-            ->where('DELETED IS NULL', null, false)
-            ->count_all_results('abc_mst_cash_in_detail') > 0;
-    }
-
-    public function delete_dp_by_sales($sales, $plant)
-    {
-        // Ambil semua header yang terpengaruh
-        $headers = $this->db
-            ->select('CASH_IN')
-            ->from('abc_mst_cash_in_detail')
-            ->where('SALES', $sales)
-            ->where('PLANT', $plant)
-            ->where('ORG_SLIP_NO', 'AUTO_DP')
-            ->group_by('CASH_IN')
-            ->get()
-            ->result_array();
-
-        if (!$headers) return;
-
-        // Hapus semua AUTO DP detail sekaligus
-        $this->db->where('SALES', $sales)
-            ->where('PLANT', $plant)
-            ->where('ORG_SLIP_NO', 'AUTO_DP')
-            ->delete('abc_mst_cash_in_detail');
-
-        foreach ($headers as $h) {
-            $cashIn = $h['CASH_IN'];
-
-            // Cek sisa detail
-            $remain = $this->db
-                ->where('CASH_IN', $cashIn)
-                ->where('PLANT', $plant)
-                ->count_all_results('abc_mst_cash_in_detail');
-
-            if ($remain == 0) {
-                $this->db->where('CASH_IN', $cashIn)
-                    ->where('PLANT', $plant)
-                    ->delete('abc_mst_cash_in');
-            } else {
-                $total = $this->db
-                    ->select_sum('AMOUNT_OFFSET')
-                    ->where('CASH_IN', $cashIn)
-                    ->where('PLANT', $plant)
-                    ->get('abc_mst_cash_in_detail')
-                    ->row()->AMOUNT_OFFSET ?? 0;
-
-                $this->db->where('CASH_IN', $cashIn)
-                    ->where('PLANT', $plant)
-                    ->update('abc_mst_cash_in', ['AMOUNT' => $total]);
-            }
-        }
-    }
-
-    // public function reduce_invoice_remain($sales, $plant, $amount)
-    // {
-    //     $this->db->set('REMAIN', "REMAIN - {$amount}", false);
-    //     $this->db->where([
-    //         'SALES' => $sales,
-    //         'PLANT' => $plant
-    //     ]);
-    //     $this->db->update('mst_sales');
-    // }
-
-    // public function restore_invoice_remain($sales, $plant, $amount)
-    // {
-    //     $this->db->set('REMAIN', "REMAIN + {$amount}", false);
-    //     $this->db->where([
-    //         'SALES' => $sales,
-    //         'PLANT' => $plant
-    //     ]);
-    //     $this->db->update('mst_sales');
-    // }
-
-    public function get_detail_by_cash_in($plant, $cashInNo)
-    {
-        return $this->db
-            ->from('abc_mst_cash_in_detail')
-            ->where([
-                'PLANT'   => $plant,
-                'CASH_IN' => $cashInNo
-            ])
-            ->get()
-            ->result_array();
-    }
-
-    public function lock_invoice($sales, $plant)
-    {
-        return $this->db
-            ->query("
-                SELECT SALES
-                FROM mst_sales
-                WHERE SALES = ? AND PLANT = ?
-                FOR UPDATE
-            ", [$sales, $plant])
-            ->row_array();
-    }
-
-    // public function update_invoice_status($sales, $plant)
-    // {
-    //     $row = $this->db
-    //         ->select('AMOUNT, REMAIN')
-    //         ->from('mst_sales')
-    //         ->where('SALES', $sales)
-    //         ->where('PLANT', $plant)
-    //         ->get()
-    //         ->row_array();
-
-    //     if (!$row) return false;
-
-    //     if ($row['REMAIN'] <= 0) {
-    //         $status = 'PAID';
-    //     } elseif ($row['REMAIN'] < $row['AMOUNT']) {
-    //         $status = 'PARTIAL';
-    //     } else {
-    //         $status = 'OPEN';
-    //     }
-
-    //     return $this->db
-    //         ->where('SALES', $sales)
-    //         ->where('PLANT', $plant)
-    //         ->update('mst_sales', [
-    //             'STATUS'     => $status,
-    //             'UPDATED_AT' => date('Y-m-d H:i:s')
-    //         ]);
-    // }
-
-    public function update_header_amount($cashIn, $plant, $amount)
-    {
-        return $this->db->where([
-            'CASH_IN' => $cashIn,
-            'PLANT'   => $plant
-        ])->update('abc_mst_cash_in', [
-            'AMOUNT' => $amount
-        ]);
-    }
-
-    public function update_header($plant, $cashInNo, $data)
-    {
-        $this->db
-            ->where([
-                'PLANT'   => $plant,
-                'CASH_IN' => $cashInNo
-            ])
-            ->update('abc_mst_cash_in', $data);
-    }
-
-    /* ---------------------------------------------------------
-       DETAIL OPERATIONS
-    --------------------------------------------------------- */
-    public function delete_header($cashIn,$plant){
-        $this->db->where(['CASH_IN'=>$cashIn,'PLANT'=>$plant])
-                ->delete('abc_mst_cash_in');
-    }
-
-    public function delete_detail($plant, $cashInNo)
-    {
-        $this->db
-            ->where([
-                'PLANT'   => $plant,
-                'CASH_IN' => $cashInNo
-            ])
-            ->delete('abc_mst_cash_in_detail');
-    }
-
-    public function insert_detail_batch($rows)
-    {
-        return $this->db->insert_batch('abc_mst_cash_in_detail', $rows);
-    }
 }

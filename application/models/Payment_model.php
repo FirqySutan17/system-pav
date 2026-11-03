@@ -1,942 +1,1268 @@
+
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Payment_model extends CI_Model {
+class Payment_model extends CI_Model
+{
+    private $payment_table = 'pav_tr_payment';
+    private $detail_table  = 'pav_tr_payment_detail';
+    private $order_table   = 'pav_tr_order';
+    private $supplier_order_table = 'pav_tr_order_supplier';
+    private $sequence_table = 'pav_tr_order_sequence';
 
-    public function __construct(){
-        parent::__construct();
-        date_default_timezone_set('Asia/Jakarta');
-    }
+    // =====================================================
+    // SUPPLIER OPTIONS
+    // =====================================================
 
-    /* ---------------------------------------------------------
-       LIST / COUNT (for table ajax)
-    --------------------------------------------------------- */
-
-    public function get_data(
-        $limit,
-        $start,
-        $role_id,
-        $plants,
-        $search = '',
-        $order = 'PAYMENT_DATE',
-        $dir = 'DESC',
-        $pembayaran = '',
-        $dateFrom = '',
-        $dateTo = ''
-    )
+    public function get_supplier_options()
     {
-        /*
-        |--------------------------------------------------------------------------
-        | ALLOWED ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $allowedOrder = [
-            'PAYMENT',
-            'PAYMENT_DATE',
-            'PEMBAYARAN',
-            'SLIP_NO',
-            'PLANT',
-            'CREATED_AT'
-        ];
-
-        if(!in_array($order, $allowedOrder)){
-
-            $order = 'PAYMENT_DATE';
-
-        }
-
-        $dir = strtoupper($dir) === 'ASC'
-            ? 'ASC'
-            : 'DESC';
-
-        /*
-        |--------------------------------------------------------------------------
-        | SELECT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->select("
-            p.*,
-
-            plant.CODE_NAME AS PLANT_NAME,
-
-            supplier.FULL_NAME AS SUPPLIER_NAME,
-
-            COUNT(DISTINCT d.SEQ_NO)
-                AS TOTAL_ITEM,
-
-            SUM(d.BERAT)
-                AS TOTAL_BERAT,
-
-            SUM(d.TOTAL)
-                AS GRAND_TOTAL
-        ", false);
-
-        /*
-        |--------------------------------------------------------------------------
-        | FROM
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->from('abc_mst_payment p');
-
-        /*
-        |--------------------------------------------------------------------------
-        | PLANT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_code plant',
-            "
-                plant.CODE COLLATE utf8mb4_unicode_ci =
-                p.PLANT COLLATE utf8mb4_unicode_ci
-                AND plant.HEAD_CODE = 'PLANT'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUPPLIER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_customer supplier',
-            "
-                supplier.CUST COLLATE utf8mb4_unicode_ci =
-                p.SUPPLIER COLLATE utf8mb4_unicode_ci
-
-                AND supplier.CUST_KIND = 'SUPPLIER'
-
-                AND supplier.CUST_CLASS = 'SUPPLIER'
-
-                AND supplier.STATUS = 'Y'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_payment_detail d',
-            '
-                d.PAYMENT = p.PAYMENT
-                AND d.PLANT = p.PLANT
-                AND d.DELETED IS NULL
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER DELETED
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            'p.DELETED IS NULL',
-            null,
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if($role_id != 1){
-
-            if(empty($plants)){
-
-                return [];
-
-            }
-
-            $this->db->where_in(
-                'p.PLANT',
-                $plants
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if($search != ''){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                'p.PAYMENT',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.PEMBAYARAN',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.SLIP_NO',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.REMARK',
-                $search
-            );
-
-            $this->db->or_like(
-                'supplier.FULL_NAME',
-                $search
-            );
-
-            $this->db->or_like(
-                'plant.CODE_NAME',
-                $search
-            );
-
-            $this->db->group_end();
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PAYMENT FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($pembayaran)){
-
-            $this->db->where(
-                'p.PEMBAYARAN',
-                $pembayaran
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATE RANGE
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($dateFrom)){
-
-            $this->db->where(
-                'p.PAYMENT_DATE >=',
-                $dateFrom . ' 00:00:00'
-            );
-
-        }
-
-        if(!empty($dateTo)){
-
-            $this->db->where(
-                'p.PAYMENT_DATE <=',
-                $dateTo . ' 23:59:59'
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GROUP
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->group_by('p.PAYMENT');
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->order_by(
-            'p.' . $order,
-            $dir
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | LIMIT
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->limit(
-            (int)$limit,
-            (int)$start
-        );
-
         return $this->db
+            ->select('CUST, FULL_NAME')
+            ->from('pav_cd_customer')
+            ->where('CUST_KIND', 'SUPPLIER')
+            ->where('STATUS', 'ACTIVE')
+            ->order_by('FULL_NAME', 'ASC')
             ->get()
             ->result_array();
     }
 
-    public function count_data(
-        $role_id,
-        $plants,
-        $search = '',
-        $pembayaran = '',
-        $dateFrom = '',
-        $dateTo = ''
-    )
+    // =====================================================
+    // GET ELIGIBLE SUPPLIER ORDERS
+    // No Plant filter
+    // =====================================================
+
+    public function get_supplier_orders($supplier, $lock = FALSE)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | FROM
-        |--------------------------------------------------------------------------
-        */
+        $sql = "
+            SELECT
+                os.ORDER_SUPPLIER_ID,
+                os.ORDER_ID,
+                os.ORDER_SUPPLIER_NO,
+                os.PAID,
+                os.REMAIN,
+                os.PAYMENT_STATUS,
+                os.TOTAL,
 
-        $this->db->from('abc_mst_payment p');
+                COALESCE(cn.CN_TOTAL_AMOUNT, 0) AS CN_TOTAL_AMOUNT,
 
-        /*
-        |--------------------------------------------------------------------------
-        | PLANT
-        |--------------------------------------------------------------------------
-        */
+                o.ORDER_NO,
+                o.ORDER_DATE,
+                o.SUPPLIER
 
-        $this->db->join(
-            'abc_cd_code plant',
-            "
-                plant.CODE COLLATE utf8mb4_unicode_ci =
-                p.PLANT COLLATE utf8mb4_unicode_ci
-                AND plant.HEAD_CODE = 'PLANT'
-            ",
-            'left',
-            false
-        );
+            FROM pav_tr_order_supplier os
 
-        /*
-        |--------------------------------------------------------------------------
-        | SUPPLIER
-        |--------------------------------------------------------------------------
-        */
+            INNER JOIN pav_tr_order o
+                ON o.ORDER_ID = os.ORDER_ID
 
-        $this->db->join(
-            'abc_cd_customer supplier',
-            "
-                supplier.CUST COLLATE utf8mb4_unicode_ci =
-                p.SUPPLIER COLLATE utf8mb4_unicode_ci
+            LEFT JOIN (
+                SELECT
+                    ORDER_SUPPLIER_ID,
+                    SUM(CN_SUPPLIER_TOTAL) AS CN_TOTAL_AMOUNT
+                FROM pav_tr_order_credit_note
+                WHERE APPROVAL_STATUS = 'APPROVED'
+                GROUP BY ORDER_SUPPLIER_ID
+            ) cn
+                ON cn.ORDER_SUPPLIER_ID = os.ORDER_SUPPLIER_ID
 
-                AND supplier.CUST_KIND = 'SUPPLIER'
+            WHERE o.SUPPLIER = ?
+            AND o.STATUS = 'OPEN'
+            AND os.REMAIN > 0
 
-                AND supplier.CUST_CLASS = 'SUPPLIER'
+            ORDER BY
+                o.ORDER_DATE ASC,
+                os.ORDER_SUPPLIER_ID ASC
+        ";
 
-                AND supplier.STATUS = 'Y'
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | DETAIL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_mst_payment_detail d',
-            '
-                d.PAYMENT = p.PAYMENT
-                AND d.PLANT = p.PLANT
-                AND d.DELETED IS NULL
-            ',
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER DELETED
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            'p.DELETED IS NULL',
-            null,
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if($role_id != 1){
-
-            if(empty($plants)){
-
-                return 0;
-
-            }
-
-            $this->db->where_in(
-                'p.PLANT',
-                $plants
-            );
-
+        if ($lock) {
+            $sql .= " FOR UPDATE";
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if($search != ''){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                'p.PAYMENT',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.PEMBAYARAN',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.SLIP_NO',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.REMARK',
-                $search
-            );
-
-            $this->db->or_like(
-                'supplier.FULL_NAME',
-                $search
-            );
-
-            $this->db->or_like(
-                'plant.CODE_NAME',
-                $search
-            );
-
-            $this->db->group_end();
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | PAYMENT FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($pembayaran)){
-
-            $this->db->where(
-                'p.PEMBAYARAN',
-                $pembayaran
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | DATE FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($dateFrom)){
-
-            $this->db->where(
-                'p.PAYMENT_DATE >=',
-                $dateFrom . ' 00:00:00'
-            );
-
-        }
-
-        if(!empty($dateTo)){
-
-            $this->db->where(
-                'p.PAYMENT_DATE <=',
-                $dateTo . ' 23:59:59'
-            );
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GROUP
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->group_by('p.PAYMENT');
-
-        return $this->db
-            ->get()
-            ->num_rows();
+        return $this->db->query($sql, [$supplier])->result_array();
     }
 
-    public function search_supplier($q = null, $limit = 20)
-    {
-        $this->db->select('CUST as id, FULL_NAME as name');
-        $this->db->from('abc_cd_customer');
-        $this->db->where('CUST_KIND', 'SUPPLIER');
-        $this->db->where('CUST_CLASS', 'SUPPLIER');
-        $this->db->where('STATUS', 'Y');
+    // =====================================================
+    // GENERATE PAYMENT NUMBER
+    // PM-YYYYMM-0001
+    // =====================================================
 
-        if ($q) {
-            $this->db->group_start();
-            $this->db->like('CUST', $q);
-            $this->db->or_like('FULL_NAME', $q);
-            $this->db->group_end();
+    private function generate_payment_number($payment_date)
+    {
+        $period = date('Ym', strtotime($payment_date));
+
+        $sql = "
+            INSERT INTO {$this->sequence_table}
+                (DOC_TYPE, PERIOD, LAST_NUMBER)
+            VALUES ('PM', ?, 1)
+            ON DUPLICATE KEY UPDATE
+                LAST_NUMBER = LAST_NUMBER + 1
+        ";
+
+        if (!$this->db->query($sql, [$period])) {
+            return FALSE;
         }
-
-        $this->db->order_by('CUST', 'ASC');
-        $this->db->limit($limit);
-
-        $rows = $this->db->get()->result_array();
-
-        $out = [];
-        foreach ($rows as $r) {
-            $out[] = [
-                'id'   => $r['id'],
-                'text' => $r['id'].' - '.$r['name']
-            ];
-        }
-        return $out;
-    }
-
-    public function get_receive_for_modal($supplier, $plant)
-    {
-        $this->db->select("
-            r.PLANT,
-            c.code_name AS PLANT_NAME,
-            r.RECEIVE,
-            r.RECEIVE_DATE,
-            r.SUPPLIER,
-            s.FULL_NAME AS SUPPLIER_NAME,
-
-            d.MATERIAL,
-            m.MATERIAL_NAME,
-
-            SUM(d.BERAT)  AS TOTAL_BERAT,
-            SUM(d.JUMLAH) AS TOTAL_QTY,
-            d.HARGA,
-            SUM(d.JUMLAH * d.HARGA) AS TOTAL
-        ");
-
-        $this->db->from('abc_mst_receive r');
-        $this->db->join('abc_mst_receive_detail d', 'r.RECEIVE = d.RECEIVE AND r.PLANT = d.PLANT');
-        $this->db->join('abc_cd_customer s', 'r.SUPPLIER = s.CUST', 'left');
-        $this->db->join('abc_cd_code c', 'c.code = r.PLANT AND c.head_code = "AJ"', 'left');
-        $this->db->join(
-            'abc_cd_material m',
-            'm.material COLLATE utf8mb4_unicode_ci = d.MATERIAL COLLATE utf8mb4_unicode_ci',
-            'left',
-            false
-        );
-
-        $this->db->where('r.SUPPLIER', $supplier);
-        $this->db->where('r.PLANT', $plant);
-        $this->db->where('r.DELETED IS NULL', null, false);
-
-        $this->db->group_start();
-        $this->db->where('d.STATUS IS NULL', null, false);
-        $this->db->or_where('d.STATUS !=', 'Y');
-        $this->db->group_end();
-
-        $this->db->group_by('
-            r.PLANT,
-            c.code_name,
-            r.RECEIVE,
-            r.RECEIVE_DATE,
-            s.FULL_NAME,
-            d.MATERIAL,
-            m.MATERIAL_NAME,
-            d.HARGA
-        ');
-
-        $this->db->order_by('r.RECEIVE_DATE', 'DESC');
-
-        return $this->db->get()->result_array();
-    }
-
-    public function get_po_picker(
-        $plant,
-        $supplier,
-        $search = ''
-    )
-    {
-        $this->db->select("
-            p.PO,
-
-            p.PLANT,
-
-            p.SUPPLIER,
-
-            supplier.FULL_NAME AS SUPPLIER_NAME,
-
-            p.MATERIAL,
-
-            material.MATERIAL_NAME,
-
-            p.JUMLAH,
-
-            p.BERAT,
-
-            p.HARGA,
-
-            p.TOTAL,
-
-            p.REMARK
-        ", false);
-
-        $this->db->from('abc_mst_po p');
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUPPLIER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_customer supplier',
-            "
-                supplier.CUST COLLATE utf8mb4_unicode_ci =
-                p.SUPPLIER COLLATE utf8mb4_unicode_ci
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | MATERIAL
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->join(
-            'abc_cd_material material',
-            "
-                material.MATERIAL COLLATE utf8mb4_unicode_ci =
-                p.MATERIAL COLLATE utf8mb4_unicode_ci
-            ",
-            'left',
-            false
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->where(
-            'p.PLANT',
-            $plant
-        );
-
-        $this->db->where(
-            'p.SUPPLIER',
-            $supplier
-        );
-
-        $this->db->where(
-            'p.DELETED IS NULL',
-            null,
-            false
-        );
-
-        $this->db->where(
-            'p.STATUS',
-            'RECEIVED'
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEARCH
-        |--------------------------------------------------------------------------
-        */
-
-        if(!empty($search)){
-
-            $this->db->group_start();
-
-            $this->db->like(
-                'p.PO',
-                $search
-            );
-
-            $this->db->or_like(
-                'p.MATERIAL',
-                $search
-            );
-
-            $this->db->or_like(
-                'material.MATERIAL_NAME',
-                $search
-            );
-
-            $this->db->group_end();
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ORDER
-        |--------------------------------------------------------------------------
-        */
-
-        $this->db->order_by(
-            'p.PO',
-            'DESC'
-        );
-
-        return $this->db
-            ->get()
-            ->result_array();
-    }
-
-    /* ---------------------------------------------------------
-       AUTO NUMBER GENERATOR
-    --------------------------------------------------------- */
-
-    public function generate_payment_no($plant)
-    {
-        $today  = date('Ymd');
-        $prefix = $today.'PY';
 
         $row = $this->db
-            ->select('PAYMENT')
-            ->from('abc_mst_payment')
-            ->where('PLANT',$plant)
-            ->like('PAYMENT',$prefix,'after')
-            ->order_by('PAYMENT','DESC')
-            ->limit(1)
-            ->get()
-            ->row();
+            ->where('DOC_TYPE', 'PM')
+            ->where('PERIOD', $period)
+            ->get($this->sequence_table)
+            ->row_array();
 
-        $seq = $row ? ((int)substr($row->PAYMENT,-4) + 1) : 1;
+        if (!$row) {
+            return FALSE;
+        }
 
-        return $prefix.str_pad($seq,4,'0',STR_PAD_LEFT);
+        return 'PM-' . $period . '-' .
+            str_pad($row['LAST_NUMBER'], 4, '0', STR_PAD_LEFT);
     }
 
-    public function generate_slip_no($plant)
+    // =====================================================
+    // PAYMENT LIST
+    // =====================================================
+
+    public function get_payment_list($filters = [])
     {
-        $today  = date('Ymd');
-        $prefix = $today.'PR';
+        $this->db
+            ->select("
+                p.*,
+                c.FULL_NAME AS SUPPLIER_NAME,
 
-        $row = $this->db
-            ->select('SLIP_NO')
-            ->from('abc_mst_payment')
-            ->where('PLANT',$plant)
-            ->like('SLIP_NO',$prefix,'after')
-            ->order_by('SLIP_NO','DESC')
-            ->limit(1)
-            ->get()
-            ->row();
+                GROUP_CONCAT(
+                    DISTINCT os.ORDER_SUPPLIER_NO
+                    ORDER BY os.ORDER_SUPPLIER_NO
+                    SEPARATOR ', '
+                ) AS ORDER_LIST,
 
-        $seq = $row ? ((int)substr($row->SLIP_NO,-4) + 1) : 1;
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM pav_tr_payment_detail pd_current
 
-        return $prefix.str_pad($seq,4,'0',STR_PAD_LEFT);
-    }
+                        INNER JOIN pav_tr_payment_detail pd_later
+                            ON pd_later.ORDER_SUPPLIER_ID = pd_current.ORDER_SUPPLIER_ID
 
-    /* ---------------------------------------------------------
-       CRUD HEADER
-    --------------------------------------------------------- */
+                        INNER JOIN pav_tr_payment p_later
+                            ON p_later.PAYMENT_ID = pd_later.PAYMENT_ID
 
-    public function insert_header($data)
-    {
-        return $this->db->insert('abc_mst_payment',$data);
-    }
-
-
-    public function update_header_total($paymentNo, $total, $username = null)
-    {
-        return $this->db
-            ->where('PAYMENT', $paymentNo)
-            ->update('abc_mst_payment', [
-                'TOTAL'      => $total,
-                'UPDATED_AT' => date('Y-m-d H:i:s'),
-                'UPDATED_BY' => $username
-            ]);
-    }
-
-    public function update_header($payment, $data)
-    {
-        return $this->db->where('PAYMENT', $payment)
-                        ->update('abc_mst_payment', $data);
-    }
-
-    public function update_header_by_key(
-        $payment,
-        $plant,
-        $data
-    ){
-        return $this->db
-
-            ->where('PAYMENT', $payment)
-
-            ->where('PLANT', $plant)
-
-            ->update(
-                'abc_mst_payment',
-                $data
+                        WHERE pd_current.PAYMENT_ID = p.PAYMENT_ID
+                        AND p_later.PAYMENT_ID > p.PAYMENT_ID
+                        AND p_later.STATUS = 'POSTED'
+                    )
+                    THEN 1
+                    ELSE 0
+                END AS HAS_LATER_PAYMENT
+            ", FALSE)
+            ->from($this->payment_table . ' p')
+            ->join(
+                'pav_cd_customer c',
+                'c.CUST = p.SUPPLIER',
+                'left'
+            )
+            ->join(
+                $this->detail_table . ' pd',
+                'pd.PAYMENT_ID = p.PAYMENT_ID',
+                'left'
+            )
+            ->join(
+                $this->supplier_order_table . ' os',
+                'os.ORDER_SUPPLIER_ID = pd.ORDER_SUPPLIER_ID',
+                'left'
             );
-    }
 
-    public function get_plant_select2()
-    {
+        if (!empty($filters['date_from'])) {
+            $this->db->where(
+                'p.PAYMENT_DATE >=',
+                $filters['date_from']
+            );
+        }
+
+        if (!empty($filters['date_to'])) {
+            $this->db->where(
+                'p.PAYMENT_DATE <=',
+                $filters['date_to']
+            );
+        }
+
+        if (!empty($filters['supplier'])) {
+            $this->db->where('p.SUPPLIER', $filters['supplier']);
+        }
+
+        if (!empty($filters['status'])) {
+            $this->db->where('p.STATUS', $filters['status']);
+        }
+
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+
+            $this->db->group_start()
+                ->like('p.PAYMENT_NO', $search)
+                ->or_like('p.SLIP_NO', $search)
+                ->or_like('p.SUPPLIER', $search)
+                ->or_like('c.FULL_NAME', $search)
+                ->or_like('os.ORDER_SUPPLIER_NO', $search)
+                ->group_end();
+        }
+
         return $this->db
-            ->select('CODE as id, CODE_NAME as text')
-            ->from('abc_cd_code')
-            ->where('HEAD_CODE', 'PLANT')
-            ->where('CODE !=', '*')
-            ->order_by('CODE_NAME', 'ASC')
+            ->group_by('p.PAYMENT_ID')
+            ->order_by('p.PAYMENT_DATE', 'DESC')
+            ->order_by('p.PAYMENT_ID', 'DESC')
             ->get()
             ->result_array();
     }
 
-    public function update_header_total_by_key($payment,$plant,$total,$username=null)
+    // =====================================================
+    // GET PAYMENT DETAIL
+    // =====================================================
+
+    public function get_payment_detail($payment_id)
     {
-        return $this->db
-            ->where('PAYMENT',$payment)
-            ->where('PLANT',$plant)
-            ->update('abc_mst_payment',[
-                'TOTAL'=>$total,
-                'UPDATED_AT'=>date('Y-m-d H:i:s'),
-                'UPDATED_BY'=>$username
-            ]);
-    }
-
-    public function get_header($payment, $plant)
-    {
-        $this->db->select("
-            p.*,
-            plant.CODE_NAME AS PLANT_NAME,
-            supplier.FULL_NAME AS SUPPLIER_NAME
-        ");
-
-        $this->db->from('abc_mst_payment p');
-
-        $this->db->join(
-            'abc_cd_code plant',
-            "
-                plant.CODE COLLATE utf8mb4_unicode_ci =
-                p.PLANT COLLATE utf8mb4_unicode_ci
-                AND plant.HEAD_CODE = 'PLANT'
-            ",
-            'left',
-            false
-        );
-
-        $this->db->join(
-                    'abc_cd_customer supplier',
-                    "
-                        supplier.CUST COLLATE utf8mb4_unicode_ci =
-                        p.SUPPLIER COLLATE utf8mb4_unicode_ci
-                    ",
-                    'left',
-                    false
-                );
-
-        $this->db->where('p.PAYMENT', $payment);
-
-        $this->db->where('p.PLANT', $plant);
-
-        $this->db->where('p.DELETED IS NULL', null, false);
-
-        return $this->db
+        // =========================
+        // PAYMENT HEADER
+        // =========================
+        $header = $this->db
+            ->select('
+                p.*,
+                c.FULL_NAME AS SUPPLIER_NAME
+            ')
+            ->from($this->payment_table . ' p')
+            ->join(
+                'pav_cd_customer c',
+                'c.CUST = p.SUPPLIER',
+                'left'
+            )
+            ->where('p.PAYMENT_ID', $payment_id)
             ->get()
             ->row_array();
-    }
 
-    public function get_existing_seq($payment, $plant)
-    {
-        $rows = $this->db
-            ->select('SEQ_NO')
-            ->from('abc_mst_payment_detail')
-            ->where('PAYMENT', $payment)
-            ->where('PLANT', $plant)
-            ->where('DELETED IS NULL', null, false)
-            ->order_by('SEQ_NO', 'ASC')
+        if (!$header) {
+            return NULL;
+        }
+
+        // =========================
+        // PAYMENT DETAIL
+        // =========================
+        $header['details'] = $this->db
+            ->select("
+                pd.PAYMENT_DETAIL_ID,
+                pd.PAYMENT_ID,
+                pd.ORDER_SUPPLIER_ID,
+                pd.PAID_AMOUNT,
+
+                os.ORDER_SUPPLIER_NO,
+                os.ORDER_ID,
+                os.TOTAL AS ORDER_TOTAL,
+                os.PAID AS CURRENT_PAID,
+                os.REMAIN AS CURRENT_REMAIN,
+                os.PAYMENT_STATUS,
+
+                COALESCE(cn.CN_TOTAL_AMOUNT, 0) AS CN_TOTAL_AMOUNT,
+
+                o.ORDER_NO,
+                o.ORDER_DATE
+            ", FALSE)
+            ->from($this->detail_table . ' pd')
+            ->join(
+                $this->supplier_order_table . ' os',
+                'os.ORDER_SUPPLIER_ID = pd.ORDER_SUPPLIER_ID',
+                'inner'
+            )
+            ->join(
+                $this->order_table . ' o',
+                'o.ORDER_ID = os.ORDER_ID',
+                'inner'
+            )
+            ->join(
+                "(
+                    SELECT
+                        ORDER_SUPPLIER_ID,
+                        SUM(CN_SUPPLIER_TOTAL) AS CN_TOTAL_AMOUNT
+                    FROM pav_tr_order_credit_note
+                    WHERE APPROVAL_STATUS = 'APPROVED'
+                    GROUP BY ORDER_SUPPLIER_ID
+                ) cn",
+                'cn.ORDER_SUPPLIER_ID = os.ORDER_SUPPLIER_ID',
+                'left',
+                FALSE
+            )
+            ->where('pd.PAYMENT_ID', $payment_id)
+            ->order_by('o.ORDER_DATE', 'ASC')
+            ->order_by('os.ORDER_SUPPLIER_ID', 'ASC')
             ->get()
             ->result_array();
 
-        // ubah ke array sederhana: [1,2,3]
-        return array_map(function($r){
-            return (int)$r['SEQ_NO'];
-        }, $rows);
+        return $header;
     }
 
-    /* ---------------------------------------------------------
-       CRUD DETAIL
-    --------------------------------------------------------- */
+    // =====================================================
+    // BUILD ALLOCATION
+    // =====================================================
 
-    public function insert_detail($data)
-    {
-        return $this->db->insert('abc_mst_payment_detail',$data);
+    private function build_allocations(
+        $payment_type,
+        $total_payment,
+        $orders,
+        $manual_allocations = []
+    ) {
+        $total_payment = round((float) $total_payment, 2);
+
+        if ($total_payment <= 0) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Total Payment harus lebih besar dari 0.'
+            ];
+        }
+
+        $order_map = [];
+
+        foreach ($orders as $order) {
+            $order_map[(int) $order['ORDER_SUPPLIER_ID']] = $order;
+        }
+
+        $allocations = [];
+
+        // FIFO
+        if ($payment_type === 'FIFO') {
+            $remaining_payment = $total_payment;
+
+            foreach ($orders as $order) {
+                if ($remaining_payment <= 0) {
+                    break;
+                }
+
+                $remain = round((float) $order['REMAIN'], 2);
+                $amount = min($remaining_payment, $remain);
+                $amount = round($amount, 2);
+
+                if ($amount > 0) {
+                    $allocations[] = [
+                        'ORDER_SUPPLIER_ID' =>
+                            (int) $order['ORDER_SUPPLIER_ID'],
+                        'PAID_AMOUNT' => $amount
+                    ];
+
+                    $remaining_payment = round(
+                        $remaining_payment - $amount,
+                        2
+                    );
+                }
+            }
+
+            if ($remaining_payment > 0) {
+                return [
+                    'ok' => FALSE,
+                    'message' =>
+                        'Total Payment melebihi total outstanding Supplier Order.'
+                ];
+            }
+        }
+
+        // MANUAL
+        else {
+            if (empty($manual_allocations) ||
+                !is_array($manual_allocations)) {
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Allocation Manual belum diisi.'
+                ];
+            }
+
+            $used_ids = [];
+            $allocation_total = 0;
+
+            foreach ($manual_allocations as $item) {
+                $order_id = isset($item['ORDER_SUPPLIER_ID'])
+                    ? (int) $item['ORDER_SUPPLIER_ID']
+                    : 0;
+
+                $amount = isset($item['PAID_AMOUNT'])
+                    ? $item['PAID_AMOUNT']
+                    : NULL;
+
+                if (
+                    $order_id <= 0 ||
+                    !is_numeric($amount) ||
+                    (float) $amount <= 0
+                ) {
+                    return [
+                        'ok' => FALSE,
+                        'message' => 'Allocation Manual tidak valid.'
+                    ];
+                }
+
+                if (isset($used_ids[$order_id])) {
+                    return [
+                        'ok' => FALSE,
+                        'message' => 'Supplier Order tidak boleh dipilih lebih dari satu kali.'
+                    ];
+                }
+
+                if (!isset($order_map[$order_id])) {
+                    return [
+                        'ok' => FALSE,
+                        'message' => 'Supplier Order tidak valid atau sudah tidak outstanding.'
+                    ];
+                }
+
+                $amount = round((float) $amount, 2);
+                $remain = round(
+                    (float) $order_map[$order_id]['REMAIN'],
+                    2
+                );
+
+                if ($amount > $remain) {
+                    return [
+                        'ok' => FALSE,
+                        'message' => 'Allocation melebihi outstanding Supplier Order.'
+                    ];
+                }
+
+                $used_ids[$order_id] = TRUE;
+                $allocation_total = round(
+                    $allocation_total + $amount,
+                    2
+                );
+
+                $allocations[] = [
+                    'ORDER_SUPPLIER_ID' => $order_id,
+                    'PAID_AMOUNT' => $amount
+                ];
+            }
+
+            if ($allocation_total !== $total_payment) {
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Total allocation harus sama dengan Total Payment.'
+                ];
+            }
+        }
+
+        return [
+            'ok' => TRUE,
+            'allocations' => $allocations
+        ];
     }
 
-    public function get_detail($payment, $plant)
+    // =====================================================
+    // SAVE PAYMENT
+    // =====================================================
+
+    public function save_payment($data, $manual_allocations, $user_code)
     {
+        $payment_date = trim($data['PAYMENT_DATE']);
+        $supplier = trim($data['SUPPLIER']);
+        $payment_method = strtoupper(trim($data['PAYMENT_METHOD']));
+        $payment_type = strtoupper(trim($data['PAYMENT_TYPE']));
+        $total_payment = round((float) $data['TOTAL_PAYMENT'], 2);
+
+        if (!in_array($payment_method, ['CASH', 'TRANSFER'], TRUE)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Method tidak valid.'
+            ];
+        }
+
+        if (!in_array($payment_type, ['FIFO', 'MANUAL'], TRUE)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Type tidak valid.'
+            ];
+        }
+
+        if ($total_payment <= 0) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Total Payment harus lebih besar dari 0.'
+            ];
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payment_date)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Date tidak valid.'
+            ];
+        }
+
+        $this->db->trans_begin();
+
+        // Lock and validate active supplier
+        $supplier_row = $this->db->query(
+            "SELECT CUST
+             FROM pav_cd_customer
+             WHERE CUST = ?
+               AND CUST_KIND = 'SUPPLIER'
+               AND STATUS = 'ACTIVE'
+             LIMIT 1 FOR UPDATE",
+            [$supplier]
+        )->row_array();
+
+        if (!$supplier_row) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Supplier tidak ditemukan atau tidak aktif.'
+            ];
+        }
+
+        // Lock eligible Supplier Orders
+        $orders = $this->get_supplier_orders($supplier, TRUE);
+
+        if (empty($orders)) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Tidak ada Supplier Order outstanding dengan status Master Order OPEN.'
+            ];
+        }
+
+        $allocation_result = $this->build_allocations(
+            $payment_type,
+            $total_payment,
+            $orders,
+            $manual_allocations
+        );
+
+        if (!$allocation_result['ok']) {
+            $this->db->trans_rollback();
+            return $allocation_result;
+        }
+
+        // Generate PM number
+        $payment_no = $this->generate_payment_number($payment_date);
+
+        if (!$payment_no) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Gagal membuat Payment Number.'
+            ];
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        // Insert Payment Header
+        $this->db->insert($this->payment_table, [
+            'PAYMENT_NO' => $payment_no,
+            'PAYMENT_DATE' => $payment_date,
+            'SUPPLIER' => $supplier,
+            'PAYMENT_METHOD' => $payment_method,
+            'PAYMENT_TYPE' => $payment_type,
+            'SLIP_NO' => !empty($data['SLIP_NO'])
+                ? trim($data['SLIP_NO'])
+                : NULL,
+            'TOTAL_PAYMENT' => $total_payment,
+            'REMARK' => !empty($data['REMARK'])
+                ? trim($data['REMARK'])
+                : NULL,
+            'STATUS' => 'POSTED',
+            'REG_EMP' => $user_code,
+            'REG_DATE' => $now
+        ]);
+
+        $payment_id = $this->db->insert_id();
+
+        if (!$payment_id) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Gagal menyimpan Payment Header.'
+            ];
+        }
+
+        // Insert Detail and update Supplier Order
+        foreach ($allocation_result['allocations'] as $allocation) {
+            $order_id = (int) $allocation['ORDER_SUPPLIER_ID'];
+            $amount = round((float) $allocation['PAID_AMOUNT'], 2);
+
+            $order = $orders_by_id = NULL;
+
+            foreach ($orders as $row) {
+                if ((int) $row['ORDER_SUPPLIER_ID'] === $order_id) {
+                    $order = $row;
+                    break;
+                }
+            }
+
+            if (!$order) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Supplier Order tidak ditemukan.'
+                ];
+            }
+
+            $new_paid = round((float) $order['PAID'] + $amount, 2);
+            $new_remain = round((float) $order['REMAIN'] - $amount, 2);
+
+            if ($new_remain < 0) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Outstanding Supplier Order tidak mencukupi.'
+                ];
+            }
+
+            $new_status = ($new_remain <= 0)
+                ? 'PAID'
+                : (($new_paid > 0) ? 'PARTIAL' : 'OPEN');
+
+            $this->db->insert($this->detail_table, [
+                'PAYMENT_ID' => $payment_id,
+                'ORDER_SUPPLIER_ID' => $order_id,
+                'PAID_AMOUNT' => $amount,
+                'REG_EMP' => $user_code,
+                'REG_DATE' => $now
+            ]);
+
+            $this->db
+                ->where('ORDER_SUPPLIER_ID', $order_id)
+                ->update($this->supplier_order_table, [
+                    'PAID' => $new_paid,
+                    'REMAIN' => $new_remain,
+                    'PAYMENT_STATUS' => $new_status,
+                    'UPD_EMP' => $user_code,
+                    'UPD_DATE' => $now
+                ]);
+        }
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Gagal menyimpan Payment. Seluruh perubahan dibatalkan.'
+            ];
+        }
+
+        $this->db->trans_commit();
+
+        return [
+            'ok' => TRUE,
+            'payment_id' => $payment_id,
+            'payment_no' => $payment_no,
+            'message' => 'Payment berhasil disimpan.'
+        ];
+    }
+
+    // =====================================================
+    // CHECK LATER POSTED PAYMENT
+    // =====================================================
+
+    public function has_later_posted_payment($payment_id)
+    {
+        $sql = "
+            SELECT COUNT(*) AS TOTAL
+            FROM {$this->detail_table} current_detail
+            INNER JOIN {$this->detail_table} later_detail
+                ON later_detail.ORDER_SUPPLIER_ID =
+                current_detail.ORDER_SUPPLIER_ID
+            INNER JOIN {$this->payment_table} later_payment
+                ON later_payment.PAYMENT_ID =
+                later_detail.PAYMENT_ID
+            WHERE current_detail.PAYMENT_ID = ?
+            AND later_payment.PAYMENT_ID > ?
+            AND later_payment.STATUS = 'POSTED'
+        ";
+
+        $row = $this->db
+            ->query($sql, [$payment_id, $payment_id])
+            ->row_array();
+
+        return $row && (int) $row['TOTAL'] > 0;
+    }
+
+    // =====================================================
+    // EDIT PAYMENT
+    // =====================================================
+
+    public function edit_payment(
+        $payment_id,
+        $data,
+        $manual_allocations,
+        $user_code
+    ) {
+        $payment_id = (int) $payment_id;
+
+        $payment_date = trim($data['PAYMENT_DATE']);
+        $supplier = trim($data['SUPPLIER']);
+        $payment_method = strtoupper(trim($data['PAYMENT_METHOD']));
+        $payment_type = strtoupper(trim($data['PAYMENT_TYPE']));
+        $total_payment = round((float) $data['TOTAL_PAYMENT'], 2);
+
+        if ($payment_id <= 0) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment ID tidak valid.'
+            ];
+        }
+
+        if (!in_array($payment_method, ['CASH', 'TRANSFER'], TRUE)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Method tidak valid.'
+            ];
+        }
+
+        if (!in_array($payment_type, ['FIFO', 'MANUAL'], TRUE)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Type tidak valid.'
+            ];
+        }
+
+        if ($total_payment <= 0 || !is_numeric($data['TOTAL_PAYMENT'])) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Total Payment tidak valid.'
+            ];
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $payment_date)) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment Date tidak valid.'
+            ];
+        }
+
+        $this->db->trans_begin();
+
+        // Lock Payment Header
+        $payment = $this->db->query(
+            "SELECT *
+            FROM {$this->payment_table}
+            WHERE PAYMENT_ID = ?
+            LIMIT 1 FOR UPDATE",
+            [$payment_id]
+        )->row_array();
+
+        if (!$payment) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment tidak ditemukan.'
+            ];
+        }
+
+        if ($payment['STATUS'] !== 'POSTED') {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment yang sudah VOID tidak dapat diedit.'
+            ];
+        }
+
+        // Supplier tidak boleh diganti
+        if ($supplier !== $payment['SUPPLIER']) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Supplier Payment tidak dapat diganti.'
+            ];
+        }
+
+        // Prevent edit if newer posted payment exists
+        if ($this->has_later_posted_payment($payment_id)) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment tidak dapat diedit karena sudah terdapat Payment POSTED yang lebih baru pada Supplier Order terkait.'
+            ];
+        }
+
+        // Get old detail
+        $old_details = $this->db
+            ->where('PAYMENT_ID', $payment_id)
+            ->order_by('ORDER_SUPPLIER_ID', 'ASC')
+            ->get($this->detail_table)
+            ->result_array();
+
+        if (empty($old_details)) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Detail Payment tidak ditemukan.'
+            ];
+        }
+
+        // Lock all affected Supplier Orders
+        $old_order_ids = [];
+
+        foreach ($old_details as $detail) {
+            $old_order_ids[] = (int) $detail['ORDER_SUPPLIER_ID'];
+        }
+
+        $old_order_ids = array_values(array_unique($old_order_ids));
+        sort($old_order_ids);
+
+        $locked_orders = [];
+
+        if (!empty($old_order_ids)) {
+            $ids = implode(',', array_map('intval', $old_order_ids));
+
+            $locked_orders = $this->db->query(
+                "SELECT *
+                FROM {$this->supplier_order_table}
+                WHERE ORDER_SUPPLIER_ID IN ({$ids})
+                ORDER BY ORDER_SUPPLIER_ID ASC
+                FOR UPDATE"
+            )->result_array();
+        }
+
+        $locked_map = [];
+
+        // =====================================================
+        // RECHECK LATER PAYMENT AFTER LOCKING SUPPLIER ORDERS
+        // =====================================================
+
+        if ($this->has_later_posted_payment($payment_id)) {
+
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment tidak dapat diedit karena terdapat Payment POSTED yang lebih baru pada Supplier Order terkait.'
+            ];
+        }
+
+        foreach ($locked_orders as $row) {
+            $locked_map[(int) $row['ORDER_SUPPLIER_ID']] = $row;
+        }
+
+        // Restore old allocations
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($old_details as $detail) {
+            $order_id = (int) $detail['ORDER_SUPPLIER_ID'];
+            $amount = round((float) $detail['PAID_AMOUNT'], 2);
+
+            if (!isset($locked_map[$order_id])) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Supplier Order pada Payment lama tidak ditemukan.'
+                ];
+            }
+
+            $order = $locked_map[$order_id];
+
+            $new_paid = round((float) $order['PAID'] - $amount, 2);
+            $new_remain = round((float) $order['REMAIN'] + $amount, 2);
+
+            if ($new_paid < 0) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Saldo PAID Supplier Order tidak konsisten.'
+                ];
+            }
+
+            $new_status = ($new_remain <= 0)
+                ? 'PAID'
+                : (($new_paid > 0) ? 'PARTIAL' : 'OPEN');
+
+            $this->db
+                ->where('ORDER_SUPPLIER_ID', $order_id)
+                ->update($this->supplier_order_table, [
+                    'PAID' => $new_paid,
+                    'REMAIN' => $new_remain,
+                    'PAYMENT_STATUS' => $new_status,
+                    'UPD_EMP' => $user_code,
+                    'UPD_DATE' => $now
+                ]);
+        }
+
+        // Remove old allocation details
+        $this->db
+            ->where('PAYMENT_ID', $payment_id)
+            ->delete($this->detail_table);
+
+        // Re-read eligible Supplier Orders after restoration
+        $orders = $this->get_supplier_orders($supplier, TRUE);
+
+        if (empty($orders)) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Tidak ada Supplier Order yang eligible untuk Payment ini.'
+            ];
+        }
+
+        // Build new allocation
+        $allocation_result = $this->build_allocations(
+            $payment_type,
+            $total_payment,
+            $orders,
+            $manual_allocations
+        );
+
+        if (!$allocation_result['ok']) {
+            $this->db->trans_rollback();
+            return $allocation_result;
+        }
+
+        // Insert new allocation details and update balances
+        foreach ($allocation_result['allocations'] as $allocation) {
+            $order_id = (int) $allocation['ORDER_SUPPLIER_ID'];
+            $amount = round((float) $allocation['PAID_AMOUNT'], 2);
+
+            $order = NULL;
+
+            foreach ($orders as $row) {
+                if ((int) $row['ORDER_SUPPLIER_ID'] === $order_id) {
+                    $order = $row;
+                    break;
+                }
+            }
+
+            if (!$order) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Supplier Order tidak ditemukan.'
+                ];
+            }
+
+            $new_paid = round((float) $order['PAID'] + $amount, 2);
+            $new_remain = round((float) $order['REMAIN'] - $amount, 2);
+
+            if ($new_remain < 0) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Allocation melebihi outstanding Supplier Order.'
+                ];
+            }
+
+            $new_status = ($new_remain <= 0)
+                ? 'PAID'
+                : (($new_paid > 0) ? 'PARTIAL' : 'OPEN');
+
+            $this->db->insert($this->detail_table, [
+                'PAYMENT_ID' => $payment_id,
+                'ORDER_SUPPLIER_ID' => $order_id,
+                'PAID_AMOUNT' => $amount,
+                'REG_EMP' => $user_code,
+                'REG_DATE' => $now
+            ]);
+
+            $this->db
+                ->where('ORDER_SUPPLIER_ID', $order_id)
+                ->update($this->supplier_order_table, [
+                    'PAID' => $new_paid,
+                    'REMAIN' => $new_remain,
+                    'PAYMENT_STATUS' => $new_status,
+                    'UPD_EMP' => $user_code,
+                    'UPD_DATE' => $now
+                ]);
+        }
+
+        // Update Payment Header
+        $this->db
+            ->where('PAYMENT_ID', $payment_id)
+            ->update($this->payment_table, [
+                'PAYMENT_DATE' => $payment_date,
+                'PAYMENT_METHOD' => $payment_method,
+                'PAYMENT_TYPE' => $payment_type,
+                'SLIP_NO' => !empty($data['SLIP_NO'])
+                    ? trim($data['SLIP_NO'])
+                    : NULL,
+                'TOTAL_PAYMENT' => $total_payment,
+                'REMARK' => !empty($data['REMARK'])
+                    ? trim($data['REMARK'])
+                    : NULL,
+                'UPD_EMP' => $user_code,
+                'UPD_DATE' => $now
+            ]);
+
+        if ($this->db->trans_status() === FALSE) {
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Gagal memperbarui Payment. Seluruh perubahan dibatalkan.'
+            ];
+        }
+
+        $this->db->trans_commit();
+
+        return [
+            'ok' => TRUE,
+            'message' => 'Payment berhasil diperbarui.'
+        ];
+    }
+
+    public function get_edit_supplier_orders($payment_id)
+    {
+        $payment_id = (int) $payment_id;
+
         return $this->db
-
             ->select("
-                d.*,
+                os.ORDER_SUPPLIER_ID,
+                os.ORDER_ID,
+                os.ORDER_SUPPLIER_NO,
 
-                material.MATERIAL_NAME
-            ", false)
+                (os.PAID - COALESCE(pd.PAID_AMOUNT, 0)) AS PAID,
 
-            ->from('abc_mst_payment_detail d')
+                (os.REMAIN + COALESCE(pd.PAID_AMOUNT, 0)) AS REMAIN,
+
+                os.PAYMENT_STATUS,
+                os.TOTAL,
+
+                o.ORDER_NO,
+                o.ORDER_DATE,
+                o.SUPPLIER,
+
+                COALESCE(cn.CN_TOTAL_AMOUNT, 0) AS CN_TOTAL_AMOUNT
+            ", FALSE)
+
+            ->from($this->supplier_order_table . ' os')
 
             ->join(
-                'abc_cd_material material',
-                "
-                    material.MATERIAL COLLATE utf8mb4_unicode_ci =
-                    d.MATERIAL COLLATE utf8mb4_unicode_ci
-                ",
-                'left',
-                false
+                $this->order_table . ' o',
+                'o.ORDER_ID = os.ORDER_ID',
+                'inner'
             )
 
-            ->where('d.PAYMENT', $payment)
+            ->join(
+                $this->payment_table . ' p',
+                'p.SUPPLIER = o.SUPPLIER',
+                'inner'
+            )
 
-            ->where('d.PLANT', $plant)
+            ->join(
+                $this->detail_table . ' pd',
+                'pd.ORDER_SUPPLIER_ID = os.ORDER_SUPPLIER_ID
+                AND pd.PAYMENT_ID = p.PAYMENT_ID',
+                'left',
+                FALSE
+            )
 
-            ->order_by('d.SEQ_NO', 'ASC')
+            ->join("
+                (
+                    SELECT
+                        ORDER_SUPPLIER_ID,
+                        SUM(CN_SUPPLIER_TOTAL) AS CN_TOTAL_AMOUNT
+                    FROM pav_tr_order_credit_note
+                    WHERE APPROVAL_STATUS = 'APPROVED'
+                    GROUP BY ORDER_SUPPLIER_ID
+                ) cn
+            ", 'cn.ORDER_SUPPLIER_ID = os.ORDER_SUPPLIER_ID', 'left', FALSE)
+
+            ->where('p.PAYMENT_ID', $payment_id)
+            ->where('o.STATUS', 'OPEN')
+
+            ->group_start()
+                ->where('os.REMAIN >', 0)
+                ->or_where('pd.PAYMENT_DETAIL_ID IS NOT NULL', NULL, FALSE)
+            ->group_end()
+
+            ->order_by('o.ORDER_DATE', 'ASC')
+            ->order_by('os.ORDER_SUPPLIER_ID', 'ASC')
 
             ->get()
-
             ->result_array();
     }
 
-    public function delete_detail($payment)
+    // =====================================================
+    // VOID PAYMENT
+    // =====================================================
+
+    public function void_payment($payment_id, $user_code)
     {
-        return $this->db->where('PAYMENT', $payment)
-                        ->delete('abc_mst_payment_detail');
+        $payment_id = (int) $payment_id;
+
+        if ($payment_id <= 0) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Payment ID tidak valid.'
+            ];
+        }
+
+        $this->db->trans_begin();
+
+        try {
+
+            // =====================================
+            // 1. LOCK PAYMENT HEADER
+            // =====================================
+            $payment = $this->db->query(
+                "SELECT *
+                FROM {$this->payment_table}
+                WHERE PAYMENT_ID = ?
+                LIMIT 1
+                FOR UPDATE",
+                [$payment_id]
+            )->row_array();
+
+            if (!$payment) {
+                throw new Exception('Payment tidak ditemukan.');
+            }
+
+            if ($payment['STATUS'] !== 'POSTED') {
+                throw new Exception('Payment sudah VOID.');
+            }
+
+            // =====================================
+            // 2. GET PAYMENT DETAILS
+            // =====================================
+            $details = $this->db
+                ->where('PAYMENT_ID', $payment_id)
+                ->order_by('ORDER_SUPPLIER_ID', 'ASC')
+                ->get($this->detail_table)
+                ->result_array();
+
+            if (empty($details)) {
+                throw new Exception('Detail Payment tidak ditemukan.');
+            }
+
+            $order_ids = [];
+
+            foreach ($details as $detail) {
+                $order_ids[] = (int) $detail['ORDER_SUPPLIER_ID'];
+            }
+
+            $order_ids = array_values(array_unique($order_ids));
+            sort($order_ids);
+
+            $ids = implode(',', array_map('intval', $order_ids));
+
+            // =====================================
+            // 3. LOCK SUPPLIER ORDERS
+            // =====================================
+            $orders = $this->db->query(
+                "SELECT *
+                FROM {$this->supplier_order_table}
+                WHERE ORDER_SUPPLIER_ID IN ({$ids})
+                ORDER BY ORDER_SUPPLIER_ID ASC
+                FOR UPDATE"
+            )->result_array();
+
+            $order_map = [];
+
+            foreach ($orders as $order) {
+                $order_map[(int) $order['ORDER_SUPPLIER_ID']] = $order;
+            }
+
+            if (count($order_map) !== count($order_ids)) {
+                throw new Exception('Supplier Order tidak ditemukan.');
+            }
+
+            // =====================================
+            // 4. CHECK LATER PAYMENT
+            // =====================================
+            if ($this->has_later_posted_payment($payment_id)) {
+                throw new Exception(
+                    'Payment tidak dapat di-VOID karena sudah terdapat Payment POSTED yang lebih baru pada Supplier Order terkait.'
+                );
+            }
+
+            $now = date('Y-m-d H:i:s');
+
+            // =====================================
+            // 5. REVERSE PAYMENT ALLOCATIONS
+            // =====================================
+            foreach ($details as $detail) {
+
+                $order_id = (int) $detail['ORDER_SUPPLIER_ID'];
+                $amount = round((float) $detail['PAID_AMOUNT'], 2);
+
+                $order = $order_map[$order_id];
+
+                $current_paid = round((float) $order['PAID'], 2);
+                $current_remain = round((float) $order['REMAIN'], 2);
+                $total = round((float) $order['TOTAL'], 2);
+
+                $new_paid = round($current_paid - $amount, 2);
+                $new_remain = round($current_remain + $amount, 2);
+
+                // Validate PAID
+                if ($new_paid < 0) {
+                    throw new Exception(
+                        'Saldo PAID Supplier Order tidak konsisten. Void dibatalkan.'
+                    );
+                }
+
+                // Validate REMAIN
+                if ($new_remain > $total) {
+                    throw new Exception(
+                        'Saldo REMAIN melebihi TOTAL Supplier Order. Void dibatalkan.'
+                    );
+                }
+
+                // Calculate status
+                $new_status = ($new_remain <= 0)
+                    ? 'PAID'
+                    : (($new_paid > 0) ? 'PARTIAL' : 'OPEN');
+
+                $this->db
+                    ->where('ORDER_SUPPLIER_ID', $order_id)
+                    ->update($this->supplier_order_table, [
+                        'PAID' => $new_paid,
+                        'REMAIN' => $new_remain,
+                        'PAYMENT_STATUS' => $new_status,
+                        'UPD_EMP' => $user_code,
+                        'UPD_DATE' => $now
+                    ]);
+
+                if ($this->db->affected_rows() < 0) {
+                    throw new Exception(
+                        'Gagal memperbarui saldo Supplier Order.'
+                    );
+                }
+            }
+
+            // =====================================
+            // 6. MARK PAYMENT AS VOID
+            // =====================================
+            $this->db
+                ->where('PAYMENT_ID', $payment_id)
+                ->where('STATUS', 'POSTED')
+                ->update($this->payment_table, [
+                    'STATUS' => 'VOID',
+                    'UPD_EMP' => $user_code,
+                    'UPD_DATE' => $now
+                ]);
+
+            if ($this->db->trans_status() === FALSE) {
+                throw new Exception(
+                    'Gagal melakukan Void Payment.'
+                );
+            }
+
+            // =====================================
+            // 7. COMMIT
+            // =====================================
+            $this->db->trans_commit();
+
+            return [
+                'ok' => TRUE,
+                'message' => 'Payment berhasil di-VOID dan saldo Supplier Order telah dikembalikan.'
+            ];
+
+        } catch (Exception $e) {
+
+            $this->db->trans_rollback();
+
+            return [
+                'ok' => FALSE,
+                'message' => $e->getMessage()
+            ];
+        }
     }
 
-    /* ---------------------------------------------------------
-       OTHERS
-    --------------------------------------------------------- */
-
-    public function get_all()
-    {
-        $this->db->where('DELETED IS NULL', null, false);
-        return $this->db->get('abc_mst_payment')->result_array();
-    }
 }
