@@ -91,9 +91,12 @@
 
         $poActive = (strpos($currentUri, 'po') === 0);
 
-        $creditNoteActive = (strpos($currentUri, 'credit_note') === 0);
-
         $creditNoteApprovalActive = (strpos($currentUri, 'credit_note/approval') === 0);
+
+        $creditNoteActive = (
+            strpos($currentUri, 'credit_note') === 0 &&
+            !$creditNoteApprovalActive
+        );
 
         $username = strtolower(trim(
             (string) $this->session->userdata('username')

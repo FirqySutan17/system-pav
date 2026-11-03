@@ -204,6 +204,65 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     align-items: stretch;
 }
 
+#modalCreditNote .cn-side-order {
+    border: 1px solid #e6ecf4;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 13px;
+    background: #fff;
+}
+
+#modalCreditNote .cn-side-order:last-child {
+    margin-bottom: 0;
+}
+
+#modalCreditNote .cn-side-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 11px;
+    color: #334155;
+    font-size: .82rem;
+    font-weight: 800;
+}
+
+#modalCreditNote .cn-side-tag {
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #eef2ff;
+    color: #5266c9;
+    font-size: .65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+#modalCreditNote .cn-side-summary {
+    margin-top: 12px;
+    padding: 13px;
+    border-radius: 9px;
+    background: #f8faff;
+    border: 1px solid #e7edf5;
+}
+
+#modalCreditNote .cn-side-summary .cn-detail-item {
+    margin-bottom: 10px;
+}
+
+#modalCreditNote .cn-calculation-side {
+    height: 100%;
+    padding: 14px;
+    border: 1px solid #e7edf5;
+    border-radius: 11px;
+    background: #fbfcff;
+}
+
+#modalCreditNote .cn-calculation-side h6 {
+    margin: 0 0 12px;
+    color: #334155;
+    font-size: .82rem;
+    font-weight: 800;
+}
+
 #modalCreditNote .cn-order-select .form-control {
     flex: 1 1 auto;
     min-width: 0;
@@ -621,30 +680,71 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                                         <option value="">-- Select Order Type --</option>
                                         <option value="CUSTOMER">Customer Order</option>
                                         <option value="SUPPLIER">Supplier Order</option>
+                                        <option value="CUSTOMER_SUPPLIER">Customer + Supplier Order</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div class="cn-field">
-                                <label class="cn-label" for="cn_order_display">
-                                    Selected Order <span class="cn-required">*</span>
-                                </label>
+                            <input type="hidden" name="order_customer_id" id="cn_order_customer_id">
+                            <input type="hidden" name="order_supplier_id" id="cn_order_supplier_id">
 
+                            <div class="cn-field cn-side-order" id="cnCustomerOrderGroup" style="display:none;">
+                                <div class="cn-side-title">
+                                    <span>Customer Order <span class="cn-required">*</span></span>
+                                    <span class="cn-side-tag">Customer</span>
+                                </div>
                                 <div class="cn-order-select">
-                                    <input type="text" class="form-control" id="cn_order_display"
-                                           placeholder="Select Customer / Supplier Order" readonly>
-
-                                    <button type="button" class="btn btn-outline-primary"
-                                            id="btnSelectOrder" disabled>
-                                        <i class="ti ti-search mr-1"></i>
-                                        Select Order
+                                    <input type="text" class="form-control" id="cn_customer_order_display"
+                                           placeholder="Select Customer Order" readonly>
+                                    <button type="button" class="btn btn-outline-primary btn-select-cn-order"
+                                            id="btnSelectCustomerOrder" data-order-type="CUSTOMER" disabled>
+                                        <i class="ti ti-search mr-1"></i> Select Customer
                                     </button>
                                 </div>
-
-                                <small class="cn-help">
-                                    One Credit Note can only reference one Order. Orders already linked to another Credit Note are unavailable.
-                                </small>
+                                <div class="cn-side-summary" id="cnCustomerOrderSummary" style="display:none;">
+                                    <div class="row">
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Order No</span><strong class="cn-detail-value" id="cn_customer_order_no">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Detail No</span><strong class="cn-detail-value" id="cn_customer_detail_no">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Basis</span><strong class="cn-detail-value" id="cn_customer_basis">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Customer</span><strong class="cn-detail-value" id="cn_customer_party">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Ekor</span><strong class="cn-detail-value" id="cn_customer_ekor">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">KG</span><strong class="cn-detail-value" id="cn_customer_kg">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Remaining</span><strong class="cn-detail-value" id="cn_customer_remain">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Order Total</span><strong class="cn-detail-value" id="cn_customer_total">0</strong></div>
+                                    </div>
+                                </div>
                             </div>
+
+                            <div class="cn-field cn-side-order" id="cnSupplierOrderGroup" style="display:none;">
+                                <div class="cn-side-title">
+                                    <span>Supplier Order <span class="cn-required">*</span></span>
+                                    <span class="cn-side-tag">Supplier</span>
+                                </div>
+                                <div class="cn-order-select">
+                                    <input type="text" class="form-control" id="cn_supplier_order_display"
+                                           placeholder="Select Supplier Order" readonly>
+                                    <button type="button" class="btn btn-outline-primary btn-select-cn-order"
+                                            id="btnSelectSupplierOrder" data-order-type="SUPPLIER" disabled>
+                                        <i class="ti ti-search mr-1"></i> Select Supplier
+                                    </button>
+                                </div>
+                                <div class="cn-side-summary" id="cnSupplierOrderSummary" style="display:none;">
+                                    <div class="row">
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Order No</span><strong class="cn-detail-value" id="cn_supplier_order_no">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Detail No</span><strong class="cn-detail-value" id="cn_supplier_detail_no">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Basis</span><strong class="cn-detail-value" id="cn_supplier_basis">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Supplier</span><strong class="cn-detail-value" id="cn_supplier_party">-</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Ekor</span><strong class="cn-detail-value" id="cn_supplier_ekor">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">KG</span><strong class="cn-detail-value" id="cn_supplier_kg">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Remaining</span><strong class="cn-detail-value" id="cn_supplier_remain">0</strong></div>
+                                        <div class="col-md-3 col-6 cn-detail-item"><span class="cn-detail-label">Order Total</span><strong class="cn-detail-value" id="cn_supplier_total">0</strong></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <small class="cn-help">
+                                Untuk tipe gabungan, Customer Order dan Supplier Order harus berasal dari Master Order yang sama. Setiap Order hanya dapat digunakan pada satu Credit Note.
+                            </small>
                         </div>
                     </section>
 
@@ -726,32 +826,54 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
                         <div class="cn-calculation-body">
                             <div class="row align-items-end">
-                                <div class="col-md-6 cn-field">
+                                <div class="col-md-5 cn-field">
                                     <label class="cn-label" for="cn_price">
                                         CN Price <span class="cn-required">*</span>
                                     </label>
-
                                     <input type="number" class="form-control" id="cn_price"
                                            name="cn_price" min="0" step="0.01"
                                            placeholder="Enter CN Price" required>
-
-                                    <small id="cnFormulaText">
-                                        Formula: CN Price × Quantity
-                                    </small>
+                                    <small id="cnFormulaText">Formula: CN Price × Quantity (based on each Order's basis).</small>
                                 </div>
-
-                                <div class="col-md-6 cn-field">
-                                    <label class="cn-label" for="cn_total_display">CN Total</label>
-
+                                <div class="col-md-7 cn-field">
+                                    <label class="cn-label" for="cn_total_display">Grand Total Credit Note</label>
                                     <input type="text" class="form-control" id="cn_total_display"
                                            value="0" readonly>
+                                    <small class="cn-help">Grand Total = Customer CN Total + Supplier CN Total.</small>
+                                </div>
+                            </div>
 
-                                    <small class="cn-help">Automatically calculated based on Order basis and quantity.</small>
+                            <div class="row" id="cnSplitCalculation" style="display:none;">
+                                <div class="col-md-6 mb-3" id="cnCustomerCalculation">
+                                    <div class="cn-calculation-side">
+                                        <h6>Customer CN Calculation</h6>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span class="text-muted">Basis / Quantity</span>
+                                            <strong id="cn_customer_formula">-</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">Customer CN Total</span>
+                                            <strong id="cn_customer_cn_total">0</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3" id="cnSupplierCalculation">
+                                    <div class="cn-calculation-side">
+                                        <h6>Supplier CN Calculation</h6>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span class="text-muted">Basis / Quantity</span>
+                                            <strong id="cn_supplier_formula">-</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">Supplier CN Total</span>
+                                            <strong id="cn_supplier_cn_total">0</strong>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="alert alert-info mb-0" id="cnLimitMessage">
-                                CN Total must not exceed Order Total.
+                                CN Total tidak boleh melebihi sisa nilai Order pada masing-masing sisi.
                             </div>
                         </div>
                     </section>
@@ -810,7 +932,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
             <div class="modal-header">
                 <div>
                     <h5 class="modal-title">Select Order</h5>
-                    <small>Choose an available Customer or Supplier Order.</small>
+                    <small id="orderSelectionSubtitle">Choose an available Order.</small>
                 </div>
 
                 <button type="button" class="close"
@@ -853,7 +975,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
                         <tbody id="orderSelectionTable">
                             <tr>
                                 <td colspan="10" class="text-center text-muted py-4">
-                                    Select Order Type first.
+                                    Select Customer or Supplier Order from the form first.
                                 </td>
                             </tr>
                         </tbody>

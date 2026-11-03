@@ -230,6 +230,9 @@ $totalRecords = count($orders);
     padding: 0 15px;
     font-weight: 650;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* =====================================================

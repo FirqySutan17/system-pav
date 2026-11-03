@@ -20,6 +20,8 @@ class Credit_note_model extends CI_Model
         $this->db->select("
             cn.*,
             COALESCE(oc.ORDER_CUSTOMER_NO, os.ORDER_SUPPLIER_NO) AS ORDER_DETAIL_NO,
+            oc.ORDER_CUSTOMER_NO,
+            os.ORDER_SUPPLIER_NO,
             o.ORDER_NO,
             o.ORDER_DATE,
             o.PLANT,
@@ -28,6 +30,7 @@ class Credit_note_model extends CI_Model
             c.FULL_NAME AS CUSTOMER_NAME,
             s.FULL_NAME AS SUPPLIER_NAME,
             CASE
+                WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL AND cn.ORDER_SUPPLIER_ID IS NOT NULL THEN 'CUSTOMER_SUPPLIER'
                 WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL THEN 'CUSTOMER'
                 ELSE 'SUPPLIER'
             END AS ORDER_TYPE
@@ -84,9 +87,14 @@ class Credit_note_model extends CI_Model
 
         if (!empty($filters['order_type'])) {
             if ($filters['order_type'] === 'CUSTOMER') {
-                $this->db->where('cn.ORDER_CUSTOMER_ID IS NOT NULL', NULL, FALSE);
+                $this->db->where('cn.ORDER_CUSTOMER_ID IS NOT NULL', NULL, FALSE)
+                    ->where('cn.ORDER_SUPPLIER_ID IS NULL', NULL, FALSE);
             } elseif ($filters['order_type'] === 'SUPPLIER') {
-                $this->db->where('cn.ORDER_SUPPLIER_ID IS NOT NULL', NULL, FALSE);
+                $this->db->where('cn.ORDER_SUPPLIER_ID IS NOT NULL', NULL, FALSE)
+                    ->where('cn.ORDER_CUSTOMER_ID IS NULL', NULL, FALSE);
+            } elseif ($filters['order_type'] === 'CUSTOMER_SUPPLIER') {
+                $this->db->where('cn.ORDER_CUSTOMER_ID IS NOT NULL', NULL, FALSE)
+                    ->where('cn.ORDER_SUPPLIER_ID IS NOT NULL', NULL, FALSE);
             }
         }
 
@@ -104,6 +112,18 @@ class Credit_note_model extends CI_Model
         $this->db->select("
             cn.*,
             COALESCE(oc.ORDER_CUSTOMER_NO, os.ORDER_SUPPLIER_NO) AS ORDER_DETAIL_NO,
+            oc.ORDER_CUSTOMER_NO,
+            os.ORDER_SUPPLIER_NO,
+            oc.BASIS AS CUSTOMER_BASIS,
+            oc.EKOR AS CUSTOMER_EKOR,
+            oc.KG AS CUSTOMER_KG,
+            oc.TOTAL AS CUSTOMER_ORDER_TOTAL,
+            oc.REMAIN AS CUSTOMER_REMAIN,
+            os.BASIS AS SUPPLIER_BASIS,
+            os.EKOR AS SUPPLIER_EKOR,
+            os.KG AS SUPPLIER_KG,
+            os.TOTAL AS SUPPLIER_ORDER_TOTAL,
+            os.REMAIN AS SUPPLIER_REMAIN,
             o.ORDER_NO,
             o.ORDER_DATE,
             o.PLANT,
@@ -118,6 +138,7 @@ class Credit_note_model extends CI_Model
             COALESCE(oc.UNIT_PRICE, os.UNIT_PRICE) AS ORDER_PRICE,
             COALESCE(oc.TOTAL, os.TOTAL) AS ORDER_TOTAL,
             CASE
+                WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL AND cn.ORDER_SUPPLIER_ID IS NOT NULL THEN 'CUSTOMER_SUPPLIER'
                 WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL THEN 'CUSTOMER'
                 ELSE 'SUPPLIER'
             END AS ORDER_TYPE
@@ -257,21 +278,36 @@ class Credit_note_model extends CI_Model
     | SAVE / UPDATE
     |--------------------------------------------------------------------------
     */
-
+    
     public function save($data, $id = NULL, $user_code = NULL)
     {
-        $type = isset($data['ORDER_TYPE']) ? strtoupper(trim($data['ORDER_TYPE'])) : '';
-        $detail_id = isset($data['ORDER_DETAIL_ID']) ? (int) $data['ORDER_DETAIL_ID'] : 0;
-        $cn_date = isset($data['CN_DATE']) ? trim($data['CN_DATE']) : '';
+        $type = strtoupper(trim($data['ORDER_TYPE'] ?? ''));
+        $cn_date = trim($data['CN_DATE'] ?? '');
         $cn_price = isset($data['CN_PRICE']) ? (float) $data['CN_PRICE'] : -1;
-        $remark = isset($data['REMARK']) ? trim($data['REMARK']) : '';
+        $remark = trim($data['REMARK'] ?? '');
 
-        if (!in_array($type, ['CUSTOMER', 'SUPPLIER'], TRUE)) {
+        $customer_id = (int) ($data['ORDER_CUSTOMER_ID'] ?? 0);
+        $supplier_id = (int) ($data['ORDER_SUPPLIER_ID'] ?? 0);
+
+        // Backward compatibility for the previous single-order form.
+        if ($type === 'CUSTOMER' && !$customer_id) {
+            $customer_id = (int) ($data['ORDER_DETAIL_ID'] ?? 0);
+        }
+
+        if ($type === 'SUPPLIER' && !$supplier_id) {
+            $supplier_id = (int) ($data['ORDER_DETAIL_ID'] ?? 0);
+        }
+
+        if (!in_array($type, ['CUSTOMER', 'SUPPLIER', 'CUSTOMER_SUPPLIER'], TRUE)) {
             return ['ok' => FALSE, 'message' => 'Tipe Order tidak valid.'];
         }
 
-        if ($detail_id <= 0) {
-            return ['ok' => FALSE, 'message' => 'Order wajib dipilih.'];
+        if (
+            ($type === 'CUSTOMER' && (!$customer_id || $supplier_id)) ||
+            ($type === 'SUPPLIER' && (!$supplier_id || $customer_id)) ||
+            ($type === 'CUSTOMER_SUPPLIER' && (!$customer_id || !$supplier_id))
+        ) {
+            return ['ok' => FALSE, 'message' => 'Pilihan Order belum lengkap atau tidak sesuai tipe.'];
         }
 
         if (!$this->is_valid_date($cn_date)) {
@@ -284,76 +320,79 @@ class Credit_note_model extends CI_Model
 
         $this->db->trans_begin();
 
-        // Lock selected Order row to prevent concurrent CN creation.
-        if ($type === 'CUSTOMER') {
-            $table = $this->customer_order_table;
-            $id_field = 'ORDER_CUSTOMER_ID';
-        } else {
-            $table = $this->supplier_order_table;
-            $id_field = 'ORDER_SUPPLIER_ID';
+        $customer = NULL;
+        $supplier = NULL;
+
+        // ==========================================
+        // GET CUSTOMER ORDER
+        // ==========================================
+        if ($customer_id) {
+            $customer = $this->db->query(
+                "SELECT *
+                FROM {$this->customer_order_table}
+                WHERE ORDER_CUSTOMER_ID = ?
+                LIMIT 1 FOR UPDATE",
+                [$customer_id]
+            )->row_array();
+
+            if (!$customer) {
+                $this->db->trans_rollback();
+                return ['ok' => FALSE, 'message' => 'Customer Order tidak ditemukan.'];
+            }
         }
 
-        $order = $this->db->query(
-            "SELECT * FROM {$table} WHERE {$id_field} = ? LIMIT 1 FOR UPDATE",
-            [$detail_id]
-        )->row_array();
+        // ==========================================
+        // GET SUPPLIER ORDER
+        // ==========================================
+        if ($supplier_id) {
+            $supplier = $this->db->query(
+                "SELECT *
+                FROM {$this->supplier_order_table}
+                WHERE ORDER_SUPPLIER_ID = ?
+                LIMIT 1 FOR UPDATE",
+                [$supplier_id]
+            )->row_array();
 
-        if (!$order) {
+            if (!$supplier) {
+                $this->db->trans_rollback();
+                return ['ok' => FALSE, 'message' => 'Supplier Order tidak ditemukan.'];
+            }
+        }
+
+        // ==========================================
+        // VALIDATE MASTER ORDER
+        // ==========================================
+        $master_order_id = (int) (
+            $customer['ORDER_ID'] ?? ($supplier['ORDER_ID'] ?? 0)
+        );
+
+        if (
+            $customer &&
+            $supplier &&
+            (int) $customer['ORDER_ID'] !== (int) $supplier['ORDER_ID']
+        ) {
             $this->db->trans_rollback();
-            return ['ok' => FALSE, 'message' => 'Order tidak ditemukan.'];
-        }
 
-        // Recheck existing CN, excluding the current record during edit.
-        $this->db->from($this->table);
-
-        if ($type === 'CUSTOMER') {
-            $this->db->where('ORDER_CUSTOMER_ID', $detail_id);
-        } else {
-            $this->db->where('ORDER_SUPPLIER_ID', $detail_id);
-        }
-
-        if ($id) {
-            $this->db->where('CREDIT_NOTE_ID !=', (int) $id);
-        }
-
-        if ($this->db->count_all_results() > 0) {
-            $this->db->trans_rollback();
-            return ['ok' => FALSE, 'message' => 'Order tersebut sudah memiliki Credit Note.'];
-        }
-
-        $basis = strtoupper(trim($order['BASIS']));
-
-        if ($basis === 'EKOR') {
-            $cn_total = $cn_price * (float) $order['EKOR'];
-        } elseif ($basis === 'BW') {
-            $cn_total = $cn_price * (float) $order['KG'];
-        } else {
-            $this->db->trans_rollback();
-            return ['ok' => FALSE, 'message' => 'Basis Order tidak dikenal.'];
-        }
-
-        $order_total = (float) $order['TOTAL'];
-
-        if ($cn_total > $order_total + 0.00001) {
-            $this->db->trans_rollback();
             return [
                 'ok' => FALSE,
-                'message' => 'CN Total tidak boleh melebihi Order Total.'
+                'message' => 'Customer Order dan Supplier Order harus berasal dari Master Order yang sama.'
             ];
         }
 
-        $payload = [
-            'ORDER_CUSTOMER_ID' => ($type === 'CUSTOMER') ? $detail_id : NULL,
-            'ORDER_SUPPLIER_ID' => ($type === 'SUPPLIER') ? $detail_id : NULL,
-            'CN_DATE' => $cn_date,
-            'CN_PRICE' => $cn_price,
-            'CN_TOTAL' => round($cn_total, 2),
-            'REMARK' => $remark
-        ];
+        if ($master_order_id <= 0) {
+            $this->db->trans_rollback();
+            return ['ok' => FALSE, 'message' => 'Master Order tidak valid.'];
+        }
 
+        // ==========================================
+        // VALIDATE EXISTING CREDIT NOTE
+        // ==========================================
         if ($id) {
             $existing = $this->db->query(
-                "SELECT * FROM {$this->table} WHERE CREDIT_NOTE_ID = ? LIMIT 1 FOR UPDATE",
+                "SELECT *
+                FROM {$this->table}
+                WHERE CREDIT_NOTE_ID = ?
+                LIMIT 1 FOR UPDATE",
                 [(int) $id]
             )->row_array();
 
@@ -362,46 +401,235 @@ class Credit_note_model extends CI_Model
                 return ['ok' => FALSE, 'message' => 'Credit Note tidak ditemukan.'];
             }
 
-            if ($existing['APPROVAL_STATUS'] !== 'PENDING') {
+            if (strtoupper($existing['APPROVAL_STATUS']) !== 'PENDING') {
                 $this->db->trans_rollback();
-                return ['ok' => FALSE, 'message' => 'Hanya Credit Note berstatus PENDING yang dapat diedit.'];
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Hanya Credit Note berstatus PENDING yang dapat diedit.'
+                ];
+            }
+        }
+
+        // ==========================================
+        // CHECK DUPLICATE CREDIT NOTE
+        // ==========================================
+        foreach (
+            [
+                [$customer_id, 'ORDER_CUSTOMER_ID'],
+                [$supplier_id, 'ORDER_SUPPLIER_ID']
+            ] as $check
+        ) {
+            if (!$check[0]) {
+                continue;
             }
 
-            $payload['APPROVAL_STATUS'] = 'PENDING';
-            $payload['REQUESTED_BY'] = $user_code;
-            $payload['REQUESTED_AT'] = date('Y-m-d H:i:s');
+            $this->db->from($this->table)
+                ->where($check[1], $check[0]);
 
-            $this->db
-                ->where('CREDIT_NOTE_ID', (int) $id)
+            if ($id) {
+                $this->db->where('CREDIT_NOTE_ID !=', (int) $id);
+            }
+
+            if ($this->db->count_all_results() > 0) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Order yang dipilih sudah memiliki Credit Note.'
+                ];
+            }
+        }
+
+        // ==========================================
+        // CALCULATE CREDIT NOTE TOTAL
+        // ==========================================
+        $calc = function ($order) use ($cn_price) {
+            if (!$order) {
+                return 0.00;
+            }
+
+            $basis = strtoupper(trim($order['BASIS'] ?? ''));
+
+            if ($basis === 'EKOR') {
+                $qty = (float) ($order['EKOR'] ?? 0);
+            } elseif ($basis === 'BW') {
+                $qty = (float) ($order['KG'] ?? 0);
+            } else {
+                return NULL;
+            }
+
+            return round($cn_price * $qty, 2);
+        };
+
+        $customer_total = $calc($customer);
+        $supplier_total = $calc($supplier);
+
+        if ($customer_total === NULL || $supplier_total === NULL) {
+            $this->db->trans_rollback();
+            return ['ok' => FALSE, 'message' => 'Basis Order tidak dikenal.'];
+        }
+
+        // ==========================================
+        // VALIDATE CUSTOMER REMAIN
+        // ==========================================
+        if ($customer) {
+            $limit = ($customer['REMAIN'] !== NULL)
+                ? (float) $customer['REMAIN']
+                : (float) $customer['TOTAL'];
+
+            if ($customer_total > $limit + 0.00001) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'CN Total Customer melebihi sisa Customer Order.'
+                ];
+            }
+        }
+
+        // ==========================================
+        // VALIDATE SUPPLIER REMAIN
+        // ==========================================
+        if ($supplier) {
+            $limit = ($supplier['REMAIN'] !== NULL)
+                ? (float) $supplier['REMAIN']
+                : (float) $supplier['TOTAL'];
+
+            if ($supplier_total > $limit + 0.00001) {
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'CN Total Supplier melebihi sisa Supplier Order.'
+                ];
+            }
+        }
+
+        // ==========================================
+        // CREDIT NOTE PAYLOAD
+        // ==========================================
+        $now = date('Y-m-d H:i:s');
+
+        $payload = [
+            'ORDER_CUSTOMER_ID' => $customer_id ?: NULL,
+            'ORDER_SUPPLIER_ID' => $supplier_id ?: NULL,
+            'CN_DATE' => $cn_date,
+            'CN_PRICE' => $cn_price,
+            'CN_CUSTOMER_TOTAL' => $customer_total,
+            'CN_SUPPLIER_TOTAL' => $supplier_total,
+            'CN_TOTAL' => round($customer_total + $supplier_total, 2),
+            'REMARK' => $remark,
+            'APPROVAL_STATUS' => 'PENDING',
+            'REQUESTED_BY' => $user_code,
+            'REQUESTED_AT' => $now
+        ];
+
+        // ==========================================
+        // INSERT / UPDATE CREDIT NOTE
+        // ==========================================
+        if ($id) {
+
+            // UPDATE EXISTING CREDIT NOTE
+            $credit_note_id = (int) $id;
+
+            $this->db->where('CREDIT_NOTE_ID', $credit_note_id)
                 ->update($this->table, $payload);
 
-            $credit_note_id = (int) $id;
         } else {
-            $payload['CN_NO'] = 'TMP-' . strtoupper(bin2hex(random_bytes(8)));
-            $payload['APPROVAL_STATUS'] = 'PENDING';
-            $payload['REQUESTED_BY'] = $user_code;
-            $payload['REQUESTED_AT'] = date('Y-m-d H:i:s');
 
-            $this->db->insert($this->table, $payload);
+            // INSERT NEW CREDIT NOTE WITH TEMPORARY NUMBER
+            $payload['CN_NO'] = 'TMP-' . strtoupper(bin2hex(random_bytes(8)));
+
+            $insert_result = $this->db->insert($this->table, $payload);
+            $insert_error = $this->db->error();
+
+            if (!$insert_result) {
+                log_message(
+                    'error',
+                    '[CREDIT NOTE INSERT] Failed: ' .
+                    json_encode($insert_error) .
+                    ' | Query: ' . $this->db->last_query()
+                );
+
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Gagal insert Credit Note. Periksa application/logs.'
+                ];
+            }
+
+            // GET AUTO INCREMENT ID
             $credit_note_id = (int) $this->db->insert_id();
 
-            if ($credit_note_id > 0) {
-                $cn_no = 'CN-' . date('Ym', strtotime($cn_date)) . '-' .
-                    str_pad((string) $credit_note_id, 6, '0', STR_PAD_LEFT);
+            if ($credit_note_id <= 0) {
+                $db_error = $this->db->error();
 
-                $this->db
-                    ->where('CREDIT_NOTE_ID', $credit_note_id)
-                    ->update($this->table, ['CN_NO' => $cn_no]);
+                log_message(
+                    'error',
+                    '[CREDIT NOTE ID] Invalid insert_id: ' .
+                    json_encode($db_error) .
+                    ' | Query: ' . $this->db->last_query()
+                );
+
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Credit Note ID tidak berhasil dibuat. Periksa application/logs.'
+                ];
+            }
+
+            // ==========================================
+            // GENERATE FINAL CREDIT NOTE NUMBER
+            // FORMAT: CN-YYYYMM-XXXXXX
+            // ==========================================
+            $cn_no = 'CN-' .
+                date('Ym', strtotime($cn_date)) .
+                '-' .
+                str_pad($credit_note_id, 6, '0', STR_PAD_LEFT);
+
+            $number_update_result = $this->db
+                ->where('CREDIT_NOTE_ID', $credit_note_id)
+                ->update($this->table, [
+                    'CN_NO' => $cn_no
+                ]);
+
+            if (!$number_update_result) {
+                $db_error = $this->db->error();
+
+                log_message(
+                    'error',
+                    '[CREDIT NOTE NUMBER] Failed: ' .
+                    json_encode($db_error) .
+                    ' | Query: ' . $this->db->last_query()
+                );
+
+                $this->db->trans_rollback();
+
+                return [
+                    'ok' => FALSE,
+                    'message' => 'Gagal membuat nomor Credit Note. Periksa application/logs.'
+                ];
             }
         }
 
+        // ==========================================
+        // VALIDATE CREDIT NOTE ID
+        // ==========================================
         if ($credit_note_id <= 0) {
             $this->db->trans_rollback();
-            return ['ok' => FALSE, 'message' => 'Gagal menyimpan Credit Note.'];
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Credit Note ID tidak valid.'
+            ];
         }
 
-        // Create or refresh the central approval queue entry.
-        $master_order_id = (int) $order['ORDER_ID'];
+        // ==========================================
+        // GET EXISTING APPROVAL
+        // ==========================================
         $approval = $this->db
             ->where('APPROVAL_TYPE', 'CREDIT_NOTE')
             ->where('REFERENCE_ID', $credit_note_id)
@@ -409,46 +637,66 @@ class Credit_note_model extends CI_Model
             ->get('pav_tr_order_approval')
             ->row_array();
 
+        // ==========================================
+        // APPROVAL PAYLOAD
+        // ==========================================
         $approval_payload = [
-            'ORDER_ID'        => $master_order_id,
-            'APPROVAL_TYPE'   => 'CREDIT_NOTE',
-            'REFERENCE_ID'   => $credit_note_id,
+            'ORDER_ID' => $master_order_id,
+            'APPROVAL_TYPE' => 'CREDIT_NOTE',
+            'REFERENCE_ID' => $credit_note_id,
             'APPROVAL_STATUS' => 'PENDING',
-            'REQUESTED_BY'    => $user_code,
-            'REQUESTED_AT'    => date('Y-m-d H:i:s'),
-            'APPROVED_BY'     => NULL,
-            'APPROVED_AT'     => NULL,
+            'REQUESTED_BY' => $user_code,
+            'REQUESTED_AT' => $now,
+            'APPROVED_BY' => NULL,
+            'APPROVED_AT' => NULL,
             'APPROVAL_REMARK' => NULL
         ];
 
         if ($approval) {
-            // An editable CN is PENDING; refresh its pending approval request.
-            $this->db->where('APPROVAL_ID', (int) $approval['APPROVAL_ID'])
+
+            $this->db
+                ->where('APPROVAL_ID', (int) $approval['APPROVAL_ID'])
                 ->update('pav_tr_order_approval', $approval_payload);
+
         } else {
+
             $this->db->insert('pav_tr_order_approval', $approval_payload);
         }
 
+        // ==========================================
+        // FINAL TRANSACTION VALIDATION
+        // ==========================================
         if ($this->db->trans_status() === FALSE) {
+            $db_error = $this->db->error();
+
+            log_message(
+                'error',
+                '[CREDIT NOTE TRANSACTION] Failed: ' .
+                json_encode($db_error) .
+                ' | Query: ' . $this->db->last_query()
+            );
+
             $this->db->trans_rollback();
-            return ['ok' => FALSE, 'message' => 'Gagal menyimpan Credit Note dan approval request.'];
+
+            return [
+                'ok' => FALSE,
+                'message' => 'Gagal menyimpan Credit Note dan approval request. Periksa application/logs.'
+            ];
         }
 
+        // ==========================================
+        // COMMIT
+        // ==========================================
         $this->db->trans_commit();
 
         return [
             'ok' => TRUE,
             'credit_note_id' => $credit_note_id,
-            'message' => $id ? 'Credit Note berhasil diperbarui.' : 'Credit Note berhasil dibuat.'
+            'message' => $id
+                ? 'Credit Note berhasil diperbarui.'
+                : 'Credit Note berhasil dibuat.'
         ];
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREDIT NOTE APPROVAL
-    |--------------------------------------------------------------------------
-    */
 
     public function get_pending_approvals()
     {
@@ -461,29 +709,68 @@ class Credit_note_model extends CI_Model
                 a.APPROVAL_STATUS,
                 a.REQUESTED_BY,
                 a.REQUESTED_AT,
+
+                cn.CREDIT_NOTE_ID,
                 cn.CN_NO,
                 cn.CN_DATE,
                 cn.CN_PRICE,
+                cn.CN_CUSTOMER_TOTAL,
+                cn.CN_SUPPLIER_TOTAL,
                 cn.CN_TOTAL,
+
                 o.ORDER_NO,
                 o.ORDER_DATE,
                 o.PLANT,
                 o.CUST,
                 o.SUPPLIER,
-                COALESCE(c.FULL_NAME, s.FULL_NAME) AS PARTY_NAME,
+
                 CASE
-                    WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL THEN 'CUSTOMER'
+                    WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL
+                        AND cn.ORDER_SUPPLIER_ID IS NOT NULL
+                        THEN 'CUSTOMER_SUPPLIER'
+                    WHEN cn.ORDER_CUSTOMER_ID IS NOT NULL
+                        THEN 'CUSTOMER'
                     ELSE 'SUPPLIER'
                 END AS ORDER_TYPE,
-                COALESCE(oc.ORDER_CUSTOMER_NO, os.ORDER_SUPPLIER_NO) AS ORDER_DETAIL_NO
+
+                oc.ORDER_CUSTOMER_NO,
+                os.ORDER_SUPPLIER_NO,
+
+                COALESCE(c.FULL_NAME, '') AS CUSTOMER_NAME,
+                COALESCE(s.FULL_NAME, '') AS SUPPLIER_NAME
+
             ", FALSE)
             ->from('pav_tr_order_approval a')
-            ->join($this->table . ' cn', 'cn.CREDIT_NOTE_ID = a.REFERENCE_ID', 'inner')
-            ->join($this->customer_order_table . ' oc', 'oc.ORDER_CUSTOMER_ID = cn.ORDER_CUSTOMER_ID', 'left')
-            ->join($this->supplier_order_table . ' os', 'os.ORDER_SUPPLIER_ID = cn.ORDER_SUPPLIER_ID', 'left')
-            ->join($this->order_table . ' o', 'o.ORDER_ID = a.ORDER_ID', 'inner')
-            ->join('pav_cd_customer c', 'c.CUST = o.CUST', 'left')
-            ->join('pav_cd_customer s', 's.CUST = o.SUPPLIER', 'left')
+            ->join(
+                $this->table . ' cn',
+                'cn.CREDIT_NOTE_ID = a.REFERENCE_ID',
+                'inner'
+            )
+            ->join(
+                $this->customer_order_table . ' oc',
+                'oc.ORDER_CUSTOMER_ID = cn.ORDER_CUSTOMER_ID',
+                'left'
+            )
+            ->join(
+                $this->supplier_order_table . ' os',
+                'os.ORDER_SUPPLIER_ID = cn.ORDER_SUPPLIER_ID',
+                'left'
+            )
+            ->join(
+                $this->order_table . ' o',
+                'o.ORDER_ID = a.ORDER_ID',
+                'inner'
+            )
+            ->join(
+                'pav_cd_customer c',
+                'c.CUST = o.CUST',
+                'left'
+            )
+            ->join(
+                'pav_cd_customer s',
+                's.CUST = o.SUPPLIER',
+                'left'
+            )
             ->where('a.APPROVAL_TYPE', 'CREDIT_NOTE')
             ->where('a.APPROVAL_STATUS', 'PENDING')
             ->order_by('a.REQUESTED_AT', 'ASC')
@@ -584,6 +871,21 @@ class Credit_note_model extends CI_Model
         }
 
         $now = date('Y-m-d H:i:s');
+
+        // Apply each side's own CN amount only after approval.
+        if ($decision === 'APPROVED') {
+            if (!empty($cn['ORDER_CUSTOMER_ID'])) {
+                $this->db->set('REMAIN', 'GREATEST(COALESCE(REMAIN, TOTAL, 0) - ' . (float) $cn['CN_CUSTOMER_TOTAL'] . ', 0)', FALSE)
+                    ->where('ORDER_CUSTOMER_ID', (int) $cn['ORDER_CUSTOMER_ID'])
+                    ->update($this->customer_order_table);
+            }
+            if (!empty($cn['ORDER_SUPPLIER_ID'])) {
+                $this->db->set('REMAIN', 'GREATEST(COALESCE(REMAIN, TOTAL, 0) - ' . (float) $cn['CN_SUPPLIER_TOTAL'] . ', 0)', FALSE)
+                    ->where('ORDER_SUPPLIER_ID', (int) $cn['ORDER_SUPPLIER_ID'])
+                    ->update($this->supplier_order_table);
+            }
+        }
+
         $old_data = [
             'CREDIT_NOTE' => $cn,
             'APPROVAL' => [
