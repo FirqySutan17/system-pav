@@ -135,4 +135,32 @@ $route['cashin/edit/(:num)'] = 'CashIn/edit/$1';
 $route['cashin/update/(:num)'] = 'CashIn/update/$1';
 $route['cashin/void/(:num)'] = 'CashIn/void/$1';
 
+$route['reportorder'] = 'reportorder/index';
+$route['reportorder/export-excel'] = 'reportorder/export_excel';
+
+// Report Credit Note
+$route['reportcreditnote'] = 'ReportCreditNote/index';
+$route['reportcreditnote/get-list'] = 'ReportCreditNote/get_list';
+$route['reportcreditnote/export-excel'] = 'ReportCreditNote/export_excel';
+
+$route['reportcashin'] = 'ReportCashIn/index';
+$route['reportcashin/get-allocation/(:num)'] = 'ReportCashIn/get_allocation/$1';
+$route['reportcashin/export-excel'] = 'ReportCashIn/export_excel';
+
+$route['reportpayment'] = 'ReportPayment/index';
+$route['reportpayment/get-allocation/(:num)'] =
+    'ReportPayment/get_allocation/$1';
+$route['reportpayment/export-excel'] =
+    'ReportPayment/export_excel';
+
+$route['reportcustomeraging'] =
+    'ReportCustomerAging/index';
+
+$route['reportcustomeraging/export-excel'] =
+    'ReportCustomerAging/export_excel';
+
+$route['reportcustomeroverdue'] = 'ReportCustomerOverdue/index';
+
+$route['reportcustomeroverdue/export-excel'] = 'ReportCustomerOverdue/export_excel';
+
 

@@ -109,6 +109,12 @@
 
         $paymentActive = (strpos($currentUri, 'payment') === 0);
         $cashinActive = (strpos($currentUri, 'cashin') === 0);
+        $reportorderActive = (strpos($currentUri, 'reportorder') === 0);
+        $reportcreditnoteActive = (strpos($currentUri, 'reportcreditnote') === 0);
+        $reportcashinActive = (strpos($currentUri, 'reportcashin') === 0);
+        $reportpaymentActive = (strpos($currentUri, 'reportpayment') === 0);
+        $reportcustomeragingActive = $this->uri->segment(1) == 'reportcustomeraging';
+        $reportcustomeroverdueActive = $this->uri->segment(1) == 'reportcustomeroverdue';
         ?>
 
         <div class="sidebar-profile">
@@ -229,6 +235,76 @@
                         </span>
 
                         <span class="hide-menu">Cash In Customer</span>
+                    </a>
+                </li>
+
+                <li class="sidebar-section-title">Report</li>
+
+                <!-- REPORT ORDER -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportorder'); ?>"
+                    class="sidebar-link <?= $reportorderActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon">
+                            <i class="ti ti-shopping-cart"></i>
+                        </span>
+                        <span class="hide-menu">Order Report</span>
+                    </a>
+                </li>
+
+                <!-- REPORT CREDIT NOTE -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportcreditnote'); ?>"
+                    class="sidebar-link <?= $reportcreditnoteActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon">
+                            <i class="ti ti-file-invoice"></i>
+                        </span>
+                        <span class="hide-menu">Credit Note Report</span>
+                    </a>
+                </li>
+
+                <!-- REPORT CASH IN -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportcashin'); ?>"
+                    class="sidebar-link <?= $reportcashinActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon">
+                            <i class="ti ti-cash"></i>
+                        </span>
+                        <span class="hide-menu">Cash In Report</span>
+                    </a>
+                </li>
+
+                <!-- REPORT PAYMENT -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportpayment'); ?>"
+                    class="sidebar-link <?= $reportpaymentActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon">
+                            <i class="ti ti-credit-card"></i>
+                        </span>
+                        <span class="hide-menu">Payment Report</span>
+                    </a>
+                </li>
+
+                <!-- REPORT CUSTOMER AGING -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportcustomeraging'); ?>"
+                    class="sidebar-link <?= $reportcustomeragingActive ? 'active' : ''; ?>">
+                        <span class="sidebar-icon">
+                            <i class="ti ti-chart-bar"></i>
+                        </span>
+                        <span class="hide-menu">Customer Aging Report</span>
+                    </a>
+                </li>
+
+                <!-- REPORT CUSTOMER OVERDUE -->
+                <li class="sidebar-item">
+                    <a href="<?= base_url('reportcustomeroverdue'); ?>"
+                    class="sidebar-link <?= $reportcustomeroverdueActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-alert-triangle"></i>
+                        </span>
+
+                        <span class="hide-menu">Customer Overdue Report</span>
                     </a>
                 </li>
 

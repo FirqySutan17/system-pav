@@ -358,7 +358,8 @@ class Order_model extends CI_Model
                 'reason' => 'CUSTOMER_HAS_NO_CREDIT_LIMIT',
                 'basic_credit' => 0,
                 'outstanding' => 0,
-                'credit_balance' => 0
+                'credit_balance' => 0,
+                'terms_of_payment' => NULL
             ];
         }
 
@@ -381,7 +382,8 @@ class Order_model extends CI_Model
                 'reason' => 'CREDIT_LIMIT_INACTIVE',
                 'basic_credit' => (float) $credit['BASIC_CREDIT'],
                 'outstanding' => 0,
-                'credit_balance' => 0
+                'credit_balance' => 0,
+                'terms_of_payment' => $credit['TERMS_OF_PAYMENT'] ?? NULL
             ];
         }
 
@@ -412,7 +414,8 @@ class Order_model extends CI_Model
                 : 'CREDIT_BALANCE_AVAILABLE',
             'basic_credit' => $basic_credit,
             'outstanding' => $outstanding,
-            'credit_balance' => $credit_balance
+            'credit_balance' => $credit_balance,
+            'terms_of_payment' => $credit['TERMS_OF_PAYMENT'] ?? NULL
         ];
     }
 
@@ -1513,6 +1516,24 @@ class Order_model extends CI_Model
 
         $approval_required = $credit['approval_required'];
 
+        // =============================================
+        // SNAPSHOT TERMS OF PAYMENT
+        // =============================================
+
+        $terms_raw = trim(
+            (string) ($credit['terms_of_payment'] ?? '')
+        );
+
+        // Hanya menerima angka hari bulat.
+        // Contoh valid: 0, 14, 30, 45.
+        // Nilai kosong atau format tidak valid = NULL.
+        $terms_of_payment = (
+            $terms_raw !== '' &&
+            preg_match('/^\d+$/', $terms_raw)
+        )
+            ? (int) $terms_raw
+            : NULL;
+
         $master_status = $approval_required
             ? 'PENDING APPROVAL'
             : 'OPEN';
@@ -1586,6 +1607,9 @@ class Order_model extends CI_Model
         $customer_data = array_merge($customer_data, [
             'ORDER_ID' => $order_id,
             'ORDER_CUSTOMER_NO' => $customer_order_no,
+
+            // Snapshot TOP ketika Order dibuat
+            'TERMS_OF_PAYMENT' => $terms_of_payment,
 
             'PAID' => 0,
             'REMAIN' => $sales_total,
