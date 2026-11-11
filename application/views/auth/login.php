@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Login | PT PITEK BALAP PERKASA</title>
+    <title>Login | PT. PYGMALION ARTHA VICTORY</title>
 
     <!-- Favicon -->
     <link rel="icon" type="image/png"
@@ -583,7 +583,7 @@
             <div class="login-brand__logo">
                 <img
                     src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
-                    alt="PAV - PT Pitek Balap Perkasa">
+                    alt="PAV - PT Pygmalion Artha Victory">
             </div>
 
             <div class="login-eyebrow">
@@ -591,13 +591,13 @@
             </div>
 
             <h1>
-                PT PITEK<br>
-                <span>BALAP PERKASA</span>
+                PT PYGMALION<br>
+                <span>ARTHA VICTORY</span>
             </h1>
 
             <p class="login-brand__description">
                 Welcome to the official platform of
-                PT Pitek Balap Perkasa. Sign in to access
+                PT Pygmalion Artha Victory. Sign in to access
                 your account and continue to the company system.
             </p>
 
@@ -624,7 +624,7 @@
 
         <div class="login-brand__footer">
             &copy; <?= date('Y'); ?>
-            PT PITEK BALAP PERKASA. All Rights Reserved.
+            PT PYGMALION ARTHA VICTORY. All Rights Reserved.
         </div>
 
     </section>
@@ -642,7 +642,7 @@
             <div class="login-mobile-logo">
                 <img
                     src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
-                    alt="PAV - PT Pitek Balap Perkasa">
+                    alt="PAV - PT Pygmalion Artha Victory">
             </div>
 
             <!-- Heading -->
@@ -763,14 +763,14 @@
 
                 <div class="login-security">
                     <i class="fa-solid fa-shield-halved"></i>
-                    Secure access to PT Pitek Balap Perkasa
+                    Secure access to PT Pygmalion Artha Victory
                 </div>
 
             </form>
 
             <div class="login-footer-mobile">
                 &copy; <?= date('Y'); ?>
-                PT PITEK BALAP PERKASA
+                PT PYGMALION ARTHA VICTORY
             </div>
 
         </div>

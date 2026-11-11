@@ -457,7 +457,7 @@
             </h1>
 
             <p>
-                Welcome to PT Pitek Balap Perkasa management dashboard.
+                Welcome to PT Pygmalion Artha Victory management dashboard.
                 This page is a static preview using sample data.
             </p>
         </div>

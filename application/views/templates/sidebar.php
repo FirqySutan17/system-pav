@@ -54,7 +54,7 @@
     <div>
         <div class="brand-logo">
             <a href="<?= base_url('dashboard'); ?>" class="logo-img">
-                <img src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>" alt="PT Pitek Balap Perkasa">
+                <img src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>" alt="PT Pygmalion Artha Victory">
             </a>
             <div class="close-btn d-xl-none d-block sidebartoggler cursor-pointer" id="sidebarCollapse">
                 <i class="ti ti-x fs-6"></i>

@@ -15,7 +15,7 @@
         href="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
     >
 
-    <title>PT PITEK BALAP PERKASA | Login</title>
+    <title>PT PYGMALION ARTHA VICTORY | Login</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet">
@@ -291,7 +291,7 @@
         <div class="logo-wrapper">
             <img
                 src="<?= base_url('assets/frontend/img/pav-logo.png'); ?>"
-                alt="Logo PAV - PT Pitek Balap Perkasa"
+                alt="Logo PAV - PT Pygmalion Artha Victory"
                 class="home-logo"
             >
         </div>
@@ -301,14 +301,14 @@
         </div>
 
         <h1 class="company-name">
-            PT PITEK BALAP PERKASA
+            PT PYGMALION ARTHA VICTORY
         </h1>
 
         <div class="gold-divider"></div>
 
         <p class="company-description">
             Welcome to the official platform of
-            PT Pitek Balap Perkasa.
+            PT Pygmalion Artha Victory.
             Please log in to continue to the system.
         </p>
 
@@ -336,7 +336,7 @@
 
         <footer class="home-footer">
             &copy; <?= date('Y'); ?>
-            <span>PT PITEK BALAP PERKASA</span>.
+            <span>PT PYGMALION ARTHA VICTORY</span>.
             All rights reserved.
         </footer>
 
