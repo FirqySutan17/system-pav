@@ -425,6 +425,23 @@ class Customer extends MY_Controller
             'Batas Kredit',
             'required|trim|numeric|greater_than_equal_to[0]'
         );
+        $this->form_validation->set_rules(
+            'opening_available_credit',
+            'Opening Available Credit',
+            'required|trim|numeric|greater_than_equal_to[0]'
+        );
+
+        $this->form_validation->set_rules(
+            'opening_period',
+            'Opening Period',
+            'required|regex_match[/^[0-9]{6}$/]'
+        );
+
+        $this->form_validation->set_rules(
+            'opening_effective_date',
+            'Opening Effective Date',
+            'required'
+        );
         $this->form_validation->set_rules('currency', 'Mata Uang', 'required|in_list[IDR,USD,EUR]');
         $this->form_validation->set_rules('risk_class', 'Risk Class', 'trim|in_list[A,B,C,D,E]');
         $this->form_validation->set_rules('terms_of_payment', 'Terms of Payment', 'trim|integer|greater_than_equal_to[1]|less_than_equal_to[90]');
@@ -465,6 +482,35 @@ class Customer extends MY_Controller
 
         $terms = $this->nullable_post('terms_of_payment');
 
+        $opening_period = trim(
+            (string) $this->input->post('opening_period', TRUE)
+        );
+
+        $opening_effective_date = trim(
+            (string) $this->input->post('opening_effective_date', TRUE)
+        );
+
+        if (
+            !preg_match('/^[0-9]{6}$/', $opening_period) ||
+            (int) substr($opening_period, 4, 2) < 1 ||
+            (int) substr($opening_period, 4, 2) > 12
+        ) {
+            return $this->json_response([
+                'status' => FALSE,
+                'message' => 'Opening Period harus menggunakan format YYYYMM yang valid.'
+            ], 422);
+        }
+
+        if (
+            !preg_match('/^\d{4}-\d{2}-\d{2}$/', $opening_effective_date) ||
+            date('Y-m-d', strtotime($opening_effective_date)) !== $opening_effective_date
+        ) {
+            return $this->json_response([
+                'status' => FALSE,
+                'message' => 'Opening Effective Date tidak valid.'
+            ], 422);
+        }
+
         $data = [
             'BASIC_CREDIT'          => (float) $this->input->post('basic_credit'),
             'BASIC_CREDIT_FROM_DATE'=> $date_from !== '' ? $date_from : NULL,
@@ -472,6 +518,9 @@ class Customer extends MY_Controller
             'CURRENCY'              => strtoupper(trim((string) $this->input->post('currency', TRUE))),
             'RISK_CLASS'            => strtoupper(trim((string) $this->input->post('risk_class', TRUE))),
             'TERMS_OF_PAYMENT'      => $terms !== NULL ? (string) (int) $terms : NULL,
+            'OPENING_AVAILABLE_CREDIT' => (float) $this->input->post('opening_available_credit'),
+            'OPENING_PERIOD'           => $opening_period,
+            'OPENING_EFFECTIVE_DATE'   => $opening_effective_date,
             'REMARK'                => $this->nullable_post('remark')
         ];
 

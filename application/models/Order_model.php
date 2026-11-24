@@ -197,8 +197,11 @@ class Order_model extends CI_Model
             str_pad((string) $number, 4, '0', STR_PAD_LEFT);
     }
 
-    public function get_outstanding_credit($cust, $exclude_order_customer_id = NULL)
-    {
+    public function get_outstanding_credit(
+        $cust,
+        $exclude_order_customer_id = NULL,
+        $opening_effective_date = NULL
+    ) {
         $this->db
             ->select('COALESCE(SUM(oc.REMAIN), 0) AS OUTSTANDING', FALSE)
             ->from($this->customer_table . ' oc')
@@ -218,6 +221,15 @@ class Order_model extends CI_Model
                 'PARTIAL'
             ]);
 
+        // Hanya menghitung Order mulai Opening Effective Date.
+        if (!empty($opening_effective_date)) {
+            $this->db->where(
+                'o.ORDER_DATE >=',
+                $opening_effective_date
+            );
+        }
+
+        // Untuk validasi ketika Customer Order diedit.
         if ($exclude_order_customer_id !== NULL) {
             $this->db->where(
                 'oc.ORDER_CUSTOMER_ID !=',
@@ -247,7 +259,6 @@ class Order_model extends CI_Model
             ];
         }
 
-        // Pastikan Customer aktif dan valid
         $customer = $this->get_customer_by_code($cust);
 
         if (!$customer) {
@@ -257,12 +268,13 @@ class Order_model extends CI_Model
             ];
         }
 
-        // Ambil Credit Limit
         $credit = $this->db
             ->select('
                 BASIC_CREDIT,
                 BASIC_CREDIT_FROM_DATE,
                 BASIC_CREDIT_TO_DATE,
+                OPENING_AVAILABLE_CREDIT,
+                OPENING_EFFECTIVE_DATE,
                 CURRENCY,
                 STATUS
             ')
@@ -271,7 +283,6 @@ class Order_model extends CI_Model
             ->get($this->credit_limit_table)
             ->row_array();
 
-        // Customer belum memiliki Credit Limit
         if (!$credit) {
             return [
                 'ok' => TRUE,
@@ -279,6 +290,7 @@ class Order_model extends CI_Model
                     'has_credit_limit' => FALSE,
                     'is_active' => FALSE,
                     'basic_credit' => 0,
+                    'opening_available_credit' => 0,
                     'outstanding' => 0,
                     'credit_balance' => 0,
                     'currency' => 'IDR',
@@ -290,9 +302,15 @@ class Order_model extends CI_Model
         $today = date('Y-m-d');
 
         $basic_credit = (float) $credit['BASIC_CREDIT'];
+        $opening_available_credit = (float) $credit['OPENING_AVAILABLE_CREDIT'];
 
-        // Gunakan perhitungan Outstanding yang sama dengan validasi Save Order
-        $outstanding = $this->get_outstanding_credit($cust);
+        $opening_effective_date = $credit['OPENING_EFFECTIVE_DATE'];
+
+        $outstanding = $this->get_outstanding_credit(
+            $cust,
+            NULL,
+            $opening_effective_date
+        );
 
         $is_active =
             strtoupper($credit['STATUS']) === 'ACTIVE' &&
@@ -303,9 +321,8 @@ class Order_model extends CI_Model
                 $credit['BASIC_CREDIT_TO_DATE'] >= $today
             );
 
-        // Credit Balance hanya dapat digunakan jika Credit Limit aktif
         $credit_balance = $is_active
-            ? $basic_credit - $outstanding
+            ? $opening_available_credit - $outstanding
             : 0;
 
         return [
@@ -314,6 +331,8 @@ class Order_model extends CI_Model
                 'has_credit_limit' => TRUE,
                 'is_active' => $is_active,
                 'basic_credit' => $basic_credit,
+                'opening_available_credit' => $opening_available_credit,
+                'opening_effective_date' => $opening_effective_date,
                 'outstanding' => $outstanding,
                 'credit_balance' => $credit_balance,
                 'currency' => $credit['CURRENCY'] ?: 'IDR',
@@ -328,8 +347,7 @@ class Order_model extends CI_Model
         $cust,
         $order_total,
         $exclude_order_customer_id = NULL
-    )
-    {
+    ) {
         // Lock Credit Limit record selama transaksi berjalan.
         $sql = "
             SELECT *
@@ -350,13 +368,14 @@ class Order_model extends CI_Model
 
         $credit = $query->row_array();
 
-        // Tidak memiliki Credit Limit.
+        // Customer belum memiliki Credit Limit.
         if (!$credit) {
             return [
                 'ok' => TRUE,
                 'approval_required' => TRUE,
                 'reason' => 'CUSTOMER_HAS_NO_CREDIT_LIMIT',
                 'basic_credit' => 0,
+                'opening_available_credit' => 0,
                 'outstanding' => 0,
                 'credit_balance' => 0,
                 'terms_of_payment' => NULL
@@ -374,25 +393,30 @@ class Order_model extends CI_Model
                 $credit['BASIC_CREDIT_TO_DATE'] >= $today
             );
 
+        $basic_credit = (float) $credit['BASIC_CREDIT'];
+        $opening_available_credit = (float) $credit['OPENING_AVAILABLE_CREDIT'];
+
         // Credit Limit tidak aktif atau di luar periode.
         if (!$is_active) {
             return [
                 'ok' => TRUE,
                 'approval_required' => TRUE,
                 'reason' => 'CREDIT_LIMIT_INACTIVE',
-                'basic_credit' => (float) $credit['BASIC_CREDIT'],
+                'basic_credit' => $basic_credit,
+                'opening_available_credit' => $opening_available_credit,
                 'outstanding' => 0,
                 'credit_balance' => 0,
                 'terms_of_payment' => $credit['TERMS_OF_PAYMENT'] ?? NULL
             ];
         }
 
-        $basic_credit = (float) $credit['BASIC_CREDIT'];
+        $opening_effective_date = $credit['OPENING_EFFECTIVE_DATE'];
 
-        // Hitung outstanding setelah Credit Limit berhasil dikunci.
+        // Hitung Outstanding setelah Credit Limit berhasil dikunci.
         $outstanding = $this->get_outstanding_credit(
             $cust,
-            $exclude_order_customer_id
+            $exclude_order_customer_id,
+            $opening_effective_date
         );
 
         if ($this->db->trans_status() === FALSE) {
@@ -402,9 +426,10 @@ class Order_model extends CI_Model
             ];
         }
 
-        $credit_balance = $basic_credit - $outstanding;
+        // Available Credit menggunakan Opening Available Credit.
+        $credit_balance = $opening_available_credit - $outstanding;
 
-        $approval_required = ($order_total > $credit_balance);
+        $approval_required = ((float) $order_total > $credit_balance);
 
         return [
             'ok' => TRUE,
@@ -413,6 +438,8 @@ class Order_model extends CI_Model
                 ? 'INSUFFICIENT_CREDIT_BALANCE'
                 : 'CREDIT_BALANCE_AVAILABLE',
             'basic_credit' => $basic_credit,
+            'opening_available_credit' => $opening_available_credit,
+            'opening_effective_date' => $opening_effective_date,
             'outstanding' => $outstanding,
             'credit_balance' => $credit_balance,
             'terms_of_payment' => $credit['TERMS_OF_PAYMENT'] ?? NULL

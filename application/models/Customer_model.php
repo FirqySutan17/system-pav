@@ -185,6 +185,18 @@ class Customer_model extends CI_Model
             'CURRENCY'               => ['label' => 'Currency', 'numeric' => FALSE],
             'RISK_CLASS'             => ['label' => 'Risk Class', 'numeric' => FALSE],
             'TERMS_OF_PAYMENT'       => ['label' => 'Terms of Payment', 'numeric' => FALSE],
+            'OPENING_AVAILABLE_CREDIT' => [
+                'label' => 'Opening Available Credit',
+                'numeric' => TRUE
+            ],
+            'OPENING_PERIOD' => [
+                'label' => 'Opening Period',
+                'numeric' => FALSE
+            ],
+            'OPENING_EFFECTIVE_DATE' => [
+                'label' => 'Opening Effective Date',
+                'numeric' => FALSE
+            ],
             'REMARK'                 => ['label' => 'Remark', 'numeric' => FALSE]
         ];
 
@@ -196,6 +208,9 @@ class Customer_model extends CI_Model
             'CURRENCY'               => $data['CURRENCY'],
             'RISK_CLASS'             => $data['RISK_CLASS'] !== '' ? $data['RISK_CLASS'] : NULL,
             'TERMS_OF_PAYMENT'       => $data['TERMS_OF_PAYMENT'],
+            'OPENING_AVAILABLE_CREDIT' => $data['OPENING_AVAILABLE_CREDIT'],
+            'OPENING_PERIOD'           => $data['OPENING_PERIOD'],
+            'OPENING_EFFECTIVE_DATE'   => $data['OPENING_EFFECTIVE_DATE'],
             'STATUS'                 => 'ACTIVE',
             'REMARK'                 => $data['REMARK'],
             'UPDATED_BY'             => $changed_by,
@@ -232,6 +247,9 @@ class Customer_model extends CI_Model
                 'BASIC_CREDIT' => $data['BASIC_CREDIT'],
                 'BASIC_CREDIT_FROM_DATE' => $data['BASIC_CREDIT_FROM_DATE'],
                 'BASIC_CREDIT_TO_DATE' => $data['BASIC_CREDIT_TO_DATE'],
+                'OPENING_AVAILABLE_CREDIT' => $data['OPENING_AVAILABLE_CREDIT'],
+                'OPENING_PERIOD'           => $data['OPENING_PERIOD'],
+                'OPENING_EFFECTIVE_DATE'   => $data['OPENING_EFFECTIVE_DATE'],
                 'REMARK' => $data['REMARK']
             ];
 
