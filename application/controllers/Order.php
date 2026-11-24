@@ -74,7 +74,8 @@ class Order extends MY_Controller
             'page_title' => 'Create Master Order',
 
             'customers' => $this->order->get_customer_options(),
-            'suppliers' => $this->order->get_supplier_options()
+            'suppliers' => $this->order->get_supplier_options(),
+            'sales_list' => $this->order->get_sales_options()
         ];
 
         $this->load->view('templates/header', $data);
@@ -141,6 +142,18 @@ class Order extends MY_Controller
             (string) $this->input->post('SUPPLIER', TRUE)
         );
 
+        $driver = strtoupper(trim(
+            (string) $this->input->post('DRIVER', TRUE)
+        ));
+
+        $vehicle_no = strtoupper(trim(
+            (string) $this->input->post('VEHICLE_NO', TRUE)
+        ));
+
+        $sales_code = trim(
+            (string) $this->input->post('SALES', TRUE)
+        );
+
         // ---------------------------------------------
         // CUSTOMER ORDER
         // ---------------------------------------------
@@ -180,7 +193,8 @@ class Order extends MY_Controller
         $this->form_validation->set_data([
             'ORDER_DATE' => $order_date,
             'CUST' => $cust,
-            'SUPPLIER' => $supplier_code
+            'SUPPLIER' => $supplier_code,
+            'SALES' => $sales_code
         ]);
 
         $this->form_validation->set_rules(
@@ -198,6 +212,12 @@ class Order extends MY_Controller
         $this->form_validation->set_rules(
             'SUPPLIER',
             'Supplier',
+            'required'
+        );
+
+        $this->form_validation->set_rules(
+            'SALES',
+            'Sales',
             'required'
         );
 
@@ -219,6 +239,9 @@ class Order extends MY_Controller
             'ORDER_DATE' => $order_date,
             'CUST' => $cust,
             'SUPPLIER' => $supplier_code,
+            'SALES' => $sales_code,
+            'DRIVER' => $driver,
+            'VEHICLE_NO' => $vehicle_no,
             'PLANT' => '0001'
         ];
 

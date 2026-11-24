@@ -163,4 +163,29 @@ $route['reportcustomeroverdue'] = 'ReportCustomerOverdue/index';
 
 $route['reportcustomeroverdue/export-excel'] = 'ReportCustomerOverdue/export_excel';
 
+// ==========================================
+// MASTER SALES
+// ==========================================
+
+$route['master_sales'] = 'master_sales/index';
+
+// Load Data
+$route['master_sales/load_data'] = 'master_sales/load_data';
+
+// Detail
+$route['master_sales/detail'] = 'master_sales/detail';
+
+// Preview Sales Code
+$route['master_sales/preview_code'] = 'master_sales/preview_code';
+
+// Create
+$route['master_sales/create'] = 'master_sales/create';
+$route['master_sales/store'] = 'master_sales/store';
+
+// Edit
+$route['master_sales/edit/(:any)'] = 'master_sales/edit/$1';
+
+// Update
+$route['master_sales/update/(:any)'] = 'master_sales/update/$1';
+
 

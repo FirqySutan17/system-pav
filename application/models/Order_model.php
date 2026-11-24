@@ -762,6 +762,10 @@ class Order_model extends CI_Model
                 c.FULL_NAME AS CUSTOMER_NAME,
                 o.SUPPLIER,
                 s.FULL_NAME AS SUPPLIER_NAME,
+                o.SALES,
+                sl.FULL_NAME AS SALES_NAME,
+                o.DRIVER,
+                o.VEHICLE_NO,
                 o.SELLING_PRICE,
                 o.PURCHASE_PRICE,
                 o.DIFFERENCE_PRICE,
@@ -783,6 +787,11 @@ class Order_model extends CI_Model
             ->join(
                 'pav_cd_customer s',
                 's.CUST = o.SUPPLIER',
+                'left'
+            )
+            ->join(
+                'pav_cd_sales sl',
+                'sl.SALES = o.SALES',
                 'left'
             )
             ->where('o.ORDER_NO', $order_no)
@@ -1385,6 +1394,14 @@ class Order_model extends CI_Model
         $cust = trim((string) ($header['CUST'] ?? ''));
         $supplier_code = trim((string) ($header['SUPPLIER'] ?? ''));
 
+        $driver = strtoupper(trim(
+            (string) ($header['DRIVER'] ?? '')
+        ));
+
+        $vehicle_no = strtoupper(trim(
+            (string) ($header['VEHICLE_NO'] ?? '')
+        ));
+
         // ---------------------------------------------
         // VALIDATE HEADER
         // ---------------------------------------------
@@ -1458,6 +1475,31 @@ class Order_model extends CI_Model
         }
 
         $supplier_data = $supplier_calc['data'];
+
+        $sales_code = trim(
+            (string) ($header['SALES'] ?? '')
+        );
+
+        if ($sales_code === '') {
+            return [
+                'ok' => FALSE,
+                'message' => 'Sales wajib dipilih.'
+            ];
+        }
+
+        $sales_master = $this->db
+            ->where('SALES', $sales_code)
+            ->where('STATUS', 'ACTIVE')
+            ->limit(1)
+            ->get('pav_cd_sales')
+            ->row_array();
+
+        if (!$sales_master) {
+            return [
+                'ok' => FALSE,
+                'message' => 'Sales tidak valid atau sudah tidak aktif.'
+            ];
+        }
 
         // ---------------------------------------------
         // BASIS MUST BE THE SAME
@@ -1569,9 +1611,13 @@ class Order_model extends CI_Model
             'ORDER_NO' => $order_no,
             'ORDER_DATE' => $order_date,
             'PLANT' => '0001',
+            'SALES' => $sales_code,
 
             'CUST' => $cust,
             'SUPPLIER' => $supplier_code,
+
+            'DRIVER' => $driver !== '' ? $driver : NULL,
+            'VEHICLE_NO' => $vehicle_no !== '' ? $vehicle_no : NULL,
 
             'SELLING_PRICE' => $selling_price,
             'PURCHASE_PRICE' => $purchase_price,
@@ -2510,5 +2556,15 @@ class Order_model extends CI_Model
         ];
     }
 
+    public function get_sales_options()
+    {
+        return $this->db
+            ->select('SALES, FULL_NAME')
+            ->from('pav_cd_sales')
+            ->where('STATUS', 'ACTIVE')
+            ->order_by('FULL_NAME', 'ASC')
+            ->get()
+            ->result_array();
+    }
 
 }

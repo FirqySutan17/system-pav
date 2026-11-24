@@ -766,6 +766,35 @@ $today = date('Y-m-d');
 
                     </div>
 
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">
+                                Sales <span class="required">*</span>
+                            </label>
+
+                            <select
+                                name="SALES"
+                                id="SALES"
+                                class="form-control select2-order"
+                                data-placeholder="Select Sales"
+                                required
+                            >
+                                <option value="">Select Sales</option>
+
+                                <?php foreach ($sales_list as $sales): ?>
+                                    <option
+                                        value="<?= html_escape($sales['SALES']); ?>"
+                                        <?= set_select('SALES', $sales['SALES']); ?>
+                                    >
+                                        <?= html_escape(
+                                            $sales['SALES'] . ' - ' . $sales['FULL_NAME']
+                                        ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -1373,6 +1402,79 @@ $today = date('Y-m-d');
 
         </section>
 
+        <!-- =============================================
+            4. DELIVERY INFORMATION
+        ============================================== -->
+
+        <section class="form-card">
+
+            <div class="form-card-header">
+
+                <div class="section-icon icon-supplier">
+                    <i class="ti ti-truck-delivery"></i>
+                </div>
+
+                <div>
+                    <h3 class="section-title">
+                        Delivery Information
+                    </h3>
+
+                    <p class="section-description">
+                        Informasi pengemudi dan kendaraan pengiriman
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="form-card-body">
+
+                <div class="row">
+
+                    <div class="col-md-6">
+                        <div class="form-group mb-md-0">
+
+                            <label class="form-label">
+                                Driver
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control text-uppercase"
+                                name="DRIVER"
+                                id="DRIVER"
+                                maxlength="100"
+                                placeholder="Enter driver name"
+                                style="text-transform: uppercase;"
+                            >
+
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group mb-0">
+
+                            <label class="form-label">
+                                No. Mobil / Plat Nomor
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control text-uppercase"
+                                name="VEHICLE_NO"
+                                id="VEHICLE_NO"
+                                maxlength="30"
+                                placeholder="Enter vehicle plate number"
+                                style="text-transform: uppercase;"
+                            >
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
 
         <!-- =============================================
              4. PRICE DIFFERENCE
@@ -1570,6 +1672,9 @@ $today = date('Y-m-d');
 <script>
 $(document).ready(function () {
 
+    $('#DRIVER, #VEHICLE_NO').on('input', function () {
+        this.value = this.value.toUpperCase();
+    });
     /* =================================================
        SELECT2 INITIALIZATION
     ================================================= */
@@ -1991,6 +2096,7 @@ $(document).ready(function () {
         let customerCode = $('#CUST').val();
 
         let supplierCode = $('#SUPPLIER').val();
+        let salesCode = $('#SALES').val();
 
 
         // Validate Customer
@@ -2018,6 +2124,16 @@ $(document).ready(function () {
 
             return false;
 
+        }
+
+        if (!salesCode) {
+            e.preventDefault();
+
+            alert('Sales wajib dipilih.');
+
+            $('#SALES').select2('open');
+
+            return false;
         }
 
 

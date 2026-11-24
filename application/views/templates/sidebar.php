@@ -79,6 +79,7 @@
         $codeActive = (strpos($currentUri, 'code') === 0);
         $customerActive = (strpos($currentUri, 'customer') === 0);
         $materialActive = (strpos($currentUri, 'material') === 0);
+        $masterSalesActive = (strpos($currentUri, 'master_sales') === 0);
 
         $orderApprovalActive = (
             strpos($currentUri, 'order/approval') === 0
@@ -146,6 +147,17 @@
                     <a href="<?= base_url('customer'); ?>" class="sidebar-link <?= $customerActive ? 'active' : ''; ?>">
                         <span class="sidebar-icon"><i class="ti ti-building"></i></span>
                         <span class="hide-menu">Customer / Supplier</span>
+                    </a>
+                </li>
+                <li class="sidebar-item">
+                    <a href="<?= base_url('master_sales'); ?>"
+                    class="sidebar-link <?= $masterSalesActive ? 'active' : ''; ?>">
+
+                        <span class="sidebar-icon">
+                            <i class="ti ti-users"></i>
+                        </span>
+
+                        <span class="hide-menu">Master Sales</span>
                     </a>
                 </li>
 

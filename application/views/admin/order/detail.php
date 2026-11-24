@@ -724,7 +724,7 @@ $totalDifference = (float) ($master['TOTAL_DIFFERENCE'] ?? 0);
 
             <!-- MASTER INFORMATION -->
 
-            <div class="row">
+            <div class="row" style="margin-bottom: 10px">
 
                 <div class="col-md-3">
 
@@ -761,7 +761,7 @@ $totalDifference = (float) ($master['TOTAL_DIFFERENCE'] ?? 0);
                 </div>
 
 
-                <div class="col-md-3">
+                <!-- <div class="col-md-3">
 
                     <div class="detail-item">
 
@@ -775,8 +775,16 @@ $totalDifference = (float) ($master['TOTAL_DIFFERENCE'] ?? 0);
 
                     </div>
 
-                </div>
+                </div> -->
 
+                <div class="col-md-3">
+                    <div class="detail-item">
+                        <span class="detail-label">Sales</span>
+                        <div class="detail-value">
+                            <?= html_escape($master['SALES_NAME'] ?: '-'); ?>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="col-md-3">
 
@@ -843,6 +851,42 @@ $totalDifference = (float) ($master['TOTAL_DIFFERENCE'] ?? 0);
 
                     </div>
 
+                </div>
+
+            </div>
+
+            <div class="detail-divider"></div>
+
+            <!-- DELIVERY INFORMATION -->
+
+            <div class="row">
+
+                <div class="col-md-6">
+                    <div class="detail-item">
+
+                        <span class="detail-label">
+                            Driver
+                        </span>
+
+                        <div class="detail-value">
+                            <?= html_escape($master['DRIVER'] ?: '-'); ?>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="detail-item">
+
+                        <span class="detail-label">
+                            No. Mobil / Plat Nomor
+                        </span>
+
+                        <div class="detail-value">
+                            <?= html_escape($master['VEHICLE_NO'] ?: '-'); ?>
+                        </div>
+
+                    </div>
                 </div>
 
             </div>
